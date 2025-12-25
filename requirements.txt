@@ -8,3 +8,8 @@ python-dotenv
 pydantic
 sqlalchemy
 requests
+bcrypt
+httpx
+neo4j
+python-jose[cryptography]
+passlib[bcrypt]
