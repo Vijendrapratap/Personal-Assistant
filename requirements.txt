@@ -1,0 +1,10 @@
+agno
+fastapi
+uvicorn
+qdrant-client
+mcp
+psycopg[binary]
+python-dotenv
+pydantic
+sqlalchemy
+requests

@@ -1,0 +1,33 @@
+{
+    "mcpServers": {
+        "filesystem": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "/home/pratap/work/Personal-Assistant/user_data"
+            ],
+            "env": {}
+        },
+        "brave-search": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-brave-search"
+            ],
+            "env": {
+                "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+            }
+        },
+        "memory": {
+            "command": "python",
+            "args": [
+                "-m",
+                "mcp_server_postgres",
+                "--connection-string",
+                "postgresql://user:password@localhost/alfred_memory"
+            ],
+            "env": {}
+        }
+    }
+}
