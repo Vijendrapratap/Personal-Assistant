@@ -6,71 +6,71 @@ The Alfred API is built using FastAPI and provides endpoints for chatting with t
 ## Base URL
 `http://localhost:8000`
 
-## Endpoints
+## Authentication
+Most endpoints require a Bearer Token.
 
-### 1. Chat with Alfred
+### 1. User Signup
+**POST** `/auth/signup`
+
+Create a new account.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword"
+}
+```
+
+**Response:**
+```json
+{
+  "access_token": "jwt_token_string",
+  "token_type": "bearer"
+}
+```
+
+### 2. User Login
+**POST** `/auth/login`
+
+**Request Body** (OAuth2 Form):
+- `username`: email
+- `password`: password
+
+**Response:**
+```json
+{
+  "access_token": "jwt_token_string",
+  "token_type": "bearer"
+}
+```
+
+### 3. Manage Profile
+**GET/PUT** `/auth/profile`
+
+Get or Update user profile settings (Bio, Voice, Personality).
+
+**PUT Request Body:**
+```json
+{
+  "bio": "I am a software engineer...",
+  "work_type": "Coding",
+  "voice_id": "british_butler_1",
+  "personality_prompt": "Formal and Witty",
+  "interaction_type": "formal"
+}
+```
+
+## Chat Endpoints
+
+### 4. Chat with Alfred
 **POST** `/chat`
 
-Sends a message to the agent and receives a response.
+Sends a message to the agent. **Requires Auth Token**.
 
 **Request Body:**
 ```json
 {
-  "message": "Hello Alfred, what is the weather?",
-  "user_id": "optional_user_id"
-}
-```
-
-**Response:**
-```json
-{
-  "response": "The weather is..."
-}
-```
-
-### 2. Get Chat History
-**GET** `/history`
-
-Retrieves the conversation history for a user.
-
-**Parameters:**
-- `user_id` (query param, optional, default="default_user")
-
-**Response:**
-```json
-{
-    "status": "...",
-    "message": "..."
-}
-```
-
-### 3. Submit Feedback
-**POST** `/feedback`
-
-Save user corrections for self-improvement.
-
-**Request Body:**
-```json
-{
-  "user_id": "user123",
-  "correction": "My name is spelled 'Pratap', not 'Pratrap'.",
-  "original_query": "What is my name?"
-}
-```
-
-### 4. Upload Knowledge
-**POST** `/upload-knowledge`
-
-Upload a file (PDF, Text, Markdown) to be ingested into the Vector Database.
-
-**Form Data:**
-- `file`: The file object.
-
-**Response:**
-```json
-{
-  "status": "success",
-  "filename": "document.pdf",
-  "message": "File uploaded and scheduled for ingestion."
+  "message": "Hello Alfred, what is the weather?"
 }
 ```

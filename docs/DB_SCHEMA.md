@@ -4,29 +4,33 @@ Alfred uses PostgreSQL for persistent storage of conversation history and option
 
 ## Tables
 
-### 1. alfred_conversations
-Managed automatically by `agno.storage.agent.postgres.PostgresAgentStorage`.
+### 1. users
+Stores authentication and profile data.
 
 | Column | Type | Description |
 | :--- | :--- | :--- |
-| `session_id` | `VARCHAR` | Unique identifier for the chat session |
-| `user_id` | `VARCHAR` | ID of the user |
-| `memory` | `JSONB` | serialized memory/messages |
-| `created_at` | `TIMESTAMP` | Creation timestamp |
-| `updated_at` | `TIMESTAMP` | Last update timestamp |
+| `user_id` | `VARCHAR` | Unique ID (PK) |
+| `email` | `VARCHAR` | Unique Email |
+| `password_hash` | `TEXT` | Hashed Password |
+| `profile` | `JSONB` | Stores bio, voice_id, personality settings |
+| `created_at` | `TIMESTAMP` | Creation time |
 
-### 2. learnings (Proposed)
-Stores user feedback and corrections for self-improvement.
+### 2. chat_history
+Stores messages.
 
 | Column | Type | Description |
 | :--- | :--- | :--- |
 | `id` | `SERIAL PRIMARY KEY` | Unique ID |
-| `user_id` | `VARCHAR` | User who provided the feedback |
-| `topic` | `VARCHAR` | Optional topic/category |
-| `content` | `TEXT` | The knowledge/correction to remember |
-| `original_query` | `TEXT` | The question that prompted the correction |
+| `user_id` | `VARCHAR` | Owner |
+| `role` | `VARCHAR` | 'user' or 'assistant' |
+| `content` | `TEXT` | Message text |
 | `created_at` | `TIMESTAMP` | Timestamp |
 
-## Connection
-- **URL**: `postgresql+psycopg://user:password@localhost:5432/alfred_db`
-- **Library**: `psycopg` (v3)
+### 3. user_preferences
+Key-Value store for specific learned preferences.
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `user_id` | `VARCHAR` | Owner |
+| `key` | `VARCHAR` | Preference Key |
+| `value` | `TEXT` | Preference Value |

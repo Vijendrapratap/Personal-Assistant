@@ -14,6 +14,7 @@ load_dotenv()
 from alfred.config import get_llm_provider
 from alfred.core.butler import Alfred
 from alfred.infrastructure.storage.postgres_db import PostgresAdapter
+from alfred.api import auth
 
 app = FastAPI(title="Alfred - The Digital Butler")
 
@@ -30,6 +31,9 @@ try:
     alfred = Alfred(brain=llm_provider, storage=storage_provider)
     print(f"Alfred initialized with Brain: {type(llm_provider).__name__}, Storage: {type(storage_provider).__name__}")
 
+    # Include Auth Router
+    app.include_router(auth.router)
+
 except Exception as e:
     print(f"CRITICAL ERROR Initializing Alfred: {e}")
     # In production we might exit, but here we can allow app to run with limited functionality or just raising
@@ -38,15 +42,14 @@ except Exception as e:
 # --- API Layer ---
 class ChatRequest(BaseModel):
     message: str
-    user_id: str = "default_user"
 
 class ChatResponse(BaseModel):
     response: str
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, current_user_id: str = Depends(auth.get_current_user)):
     try:
-        response_text = alfred.ask(req.message, req.user_id)
+        response_text = alfred.ask(req.message, current_user_id)
         return ChatResponse(response=response_text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
