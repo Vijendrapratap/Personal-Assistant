@@ -254,6 +254,10 @@ Full API documentation available at `http://localhost:8000/docs` when running.
 
 ## Documentation
 
+### Product & Strategy
+- [**PRODUCT_VISION.md**](docs/PRODUCT_VISION.md) - Vision, dynamic memory architecture, user personas, phased roadmap
+- [**FEATURE_SPECIFICATION.md**](docs/FEATURE_SPECIFICATION.md) - Detailed feature specs with implementation requirements
+
 ### Architecture & Design
 - [**ARCHITECTURE.md**](docs/ARCHITECTURE.md) - Full system architecture with diagrams
 - [**DATABASE_SCHEMA.md**](docs/DATABASE_SCHEMA.md) - PostgreSQL tables, indexes, and queries
@@ -261,7 +265,6 @@ Full API documentation available at `http://localhost:8000/docs` when running.
 - [**QUICK_REFERENCE.md**](docs/QUICK_REFERENCE.md) - Developer quick lookup guide
 
 ### Additional Resources
-- [Product Specification](docs/ALFRED_SPECIFICATION.md) - Full product vision
 - [MCP Setup](docs/MCP_SETUP.md) - Model Context Protocol integration
 - [API Docs](http://localhost:8000/docs) - Auto-generated OpenAPI docs (when running)
 
