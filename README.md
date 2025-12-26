@@ -254,10 +254,16 @@ Full API documentation available at `http://localhost:8000/docs` when running.
 
 ## Documentation
 
-- [API Reference](docs/API.md) - Complete endpoint documentation
-- [Database Schema](docs/DB_SCHEMA.md) - Table structures and relationships
+### Architecture & Design
+- [**ARCHITECTURE.md**](docs/ARCHITECTURE.md) - Full system architecture with diagrams
+- [**DATABASE_SCHEMA.md**](docs/DATABASE_SCHEMA.md) - PostgreSQL tables, indexes, and queries
+- [**VECTOR_AND_KNOWLEDGE_GRAPH.md**](docs/VECTOR_AND_KNOWLEDGE_GRAPH.md) - Qdrant & Neo4j integration
+- [**QUICK_REFERENCE.md**](docs/QUICK_REFERENCE.md) - Developer quick lookup guide
+
+### Additional Resources
 - [Product Specification](docs/ALFRED_SPECIFICATION.md) - Full product vision
 - [MCP Setup](docs/MCP_SETUP.md) - Model Context Protocol integration
+- [API Docs](http://localhost:8000/docs) - Auto-generated OpenAPI docs (when running)
 
 ---
 
