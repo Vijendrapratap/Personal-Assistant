@@ -383,6 +383,119 @@ export interface ScheduledNotification {
     created_at: string;
 }
 
+// ============================================
+// PROACTIVE API
+// ============================================
+
+export interface ProactiveCard {
+    id: string;
+    type: 'warning' | 'insight' | 'reminder' | 'celebration';
+    title: string;
+    description: string;
+    actions: string[];
+    entity_id?: string;
+    entity_type?: 'task' | 'habit' | 'project' | 'event';
+    priority: number;
+    created_at: string;
+}
+
+export const proactiveApi = {
+    getCards: async (limit = 10): Promise<ProactiveCard[]> => {
+        const response = await client.get('/proactive/cards', { params: { limit } });
+        return response.data;
+    },
+
+    dismiss: async (cardId: string, reason?: string) => {
+        const response = await client.post('/proactive/dismiss', { card_id: cardId, reason });
+        return response.data;
+    },
+
+    snooze: async (cardId: string, snoozeUntil?: string) => {
+        const response = await client.post('/proactive/snooze', { card_id: cardId, snooze_until: snoozeUntil });
+        return response.data;
+    },
+
+    act: async (cardId: string, action: string) => {
+        const response = await client.post(`/proactive/act/${cardId}`, null, { params: { action } });
+        return response.data;
+    }
+};
+
+// ============================================
+// KNOWLEDGE API (Entity Management)
+// ============================================
+
+export interface Entity {
+    entity_id: string;
+    entity_type: 'person' | 'company' | 'topic';
+    name: string;
+    properties: Record<string, any>;
+    relationships: Array<{
+        type: string;
+        target_id: string;
+        target_name: string;
+    }>;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface KnowledgeStats {
+    people: number;
+    companies: number;
+    projects: number;
+    preferences: number;
+    total_facts: number;
+}
+
+export const knowledgeApi = {
+    getStats: async (): Promise<KnowledgeStats> => {
+        const response = await client.get('/knowledge/stats');
+        return response.data;
+    },
+
+    getPeople: async (limit = 50): Promise<{ entities: Entity[] }> => {
+        const response = await client.get('/knowledge/entities', {
+            params: { entity_type: 'person', limit },
+        });
+        return response.data;
+    },
+
+    getCompanies: async (limit = 50): Promise<{ entities: Entity[] }> => {
+        const response = await client.get('/knowledge/entities', {
+            params: { entity_type: 'company', limit },
+        });
+        return response.data;
+    },
+
+    getEntity: async (entityId: string): Promise<Entity> => {
+        const response = await client.get(`/knowledge/entities/${entityId}`);
+        return response.data;
+    },
+
+    search: async (query: string): Promise<{ entities: Entity[] }> => {
+        const response = await client.get('/knowledge/search', {
+            params: { q: query },
+        });
+        return response.data;
+    },
+
+    getPreferences: async (): Promise<{
+        preferences: Array<{
+            key: string;
+            value: string;
+            confidence: number;
+            source: string;
+        }>;
+    }> => {
+        const response = await client.get('/knowledge/preferences');
+        return response.data;
+    },
+};
+
+// ============================================
+// NOTIFICATIONS API
+// ============================================
+
 export const notificationsApi = {
     registerToken: async (pushToken: string, deviceType: string = 'expo') => {
         const response = await client.post('/notifications/register-token', {
@@ -428,4 +541,140 @@ export const notificationsApi = {
         const response = await client.post('/notifications/test');
         return response.data;
     }
+};
+
+// ============================================
+// VOICE API
+// ============================================
+
+export interface VoiceTranscription {
+    text: string;
+    confidence: number;
+    duration_ms: number;
+}
+
+export interface VoiceChatResponse {
+    transcription: VoiceTranscription;
+    response: string;
+    thinking_steps?: Array<{
+        step: string;
+        status: 'completed' | 'in_progress' | 'pending';
+        detail?: string;
+    }>;
+    actions_taken?: Array<{
+        type: string;
+        description: string;
+        entity_id?: string;
+    }>;
+}
+
+// ============================================
+// EVENING REVIEW API
+// ============================================
+
+export interface EveningReviewData {
+    incomplete_tasks: Task[];
+    completed_tasks: Task[];
+    habits_completed: number;
+    habits_pending: number;
+    suggested_accomplishments: string[];
+}
+
+export interface EveningReviewSubmission {
+    accomplishments: string[];
+    blockers: string[];
+    tomorrow_focus: string[];
+    mood: 'great' | 'good' | 'okay' | 'tired' | 'stressed';
+    tasks_to_move: string[]; // task IDs to move to tomorrow
+    notes?: string;
+}
+
+export interface EveningReviewResponse {
+    message: string;
+    tasks_moved: number;
+    review_id: string;
+}
+
+export const eveningReviewApi = {
+    /**
+     * Get data needed for evening review (incomplete tasks, today's completions)
+     */
+    getData: async (): Promise<EveningReviewData> => {
+        const response = await client.get('/proactive/evening-review/data');
+        return response.data;
+    },
+
+    /**
+     * Submit evening review reflection
+     */
+    submit: async (data: EveningReviewSubmission): Promise<EveningReviewResponse> => {
+        const response = await client.post('/proactive/evening-review/submit', data);
+        return response.data;
+    },
+
+    /**
+     * Move specific tasks to tomorrow
+     */
+    moveTasks: async (taskIds: string[]): Promise<{ moved: number }> => {
+        const response = await client.post('/proactive/evening-review/move-tasks', {
+            task_ids: taskIds,
+        });
+        return response.data;
+    },
+
+    /**
+     * Get evening review history
+     */
+    getHistory: async (limit = 7): Promise<Array<{
+        date: string;
+        mood: string;
+        accomplishments: string[];
+        review_id: string;
+    }>> => {
+        const response = await client.get('/proactive/evening-review/history', {
+            params: { limit },
+        });
+        return response.data;
+    },
+};
+
+export const voiceApi = {
+    /**
+     * Transcribe audio to text using Whisper
+     */
+    transcribe: async (audioBase64: string): Promise<VoiceTranscription> => {
+        const response = await client.post('/voice/transcribe', {
+            audio: audioBase64,
+            format: 'wav',
+        });
+        return response.data;
+    },
+
+    /**
+     * Send voice message and get response
+     * Combines transcription + chat in one call
+     */
+    chat: async (audioBase64: string): Promise<VoiceChatResponse> => {
+        const response = await client.post('/voice/chat', {
+            audio: audioBase64,
+            format: 'wav',
+        });
+        return response.data;
+    },
+
+    /**
+     * Send text and get response with thinking steps (streaming simulation)
+     */
+    chatWithSteps: async (
+        message: string,
+        onStep?: (step: { step: string; status: string }) => void
+    ): Promise<{ response: string; steps: any[] }> => {
+        // This would use SSE/WebSocket for real streaming
+        // For now, just use the regular chat endpoint
+        const response = await client.post('/chat', { message });
+        return {
+            response: response.data.response,
+            steps: [],
+        };
+    },
 };

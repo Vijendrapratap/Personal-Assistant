@@ -13,3 +13,6 @@ httpx
 neo4j
 python-jose[cryptography]
 passlib[bcrypt]
+apscheduler
+exponent-server-sdk
+openai
