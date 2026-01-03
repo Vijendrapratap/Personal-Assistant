@@ -10,16 +10,16 @@ import {
   StyleSheet,
   RefreshControl,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
-import { Text, Card, Button } from '../components/common';
+import { Text, Card, TodayScreenSkeleton } from '../components/common';
 import { AlfredAvatar, ProactiveCard } from '../components/alfred';
 import { ConversationInput } from '../components/input';
 import { useAlfred } from '../lib/hooks/useAlfred';
+import { useHaptics, useOptimisticTasks, useOptimisticHabits } from '../lib/hooks';
 import { useAlfredStore } from '../lib/store/alfredStore';
-import { dashboardApi, tasksApi, habitsApi } from '../api/services';
+import { dashboardApi, habitsApi } from '../api/services';
 
 interface TodayScreenProps {
   navigation: any;
@@ -28,6 +28,10 @@ interface TodayScreenProps {
 export default function TodayScreen({ navigation }: TodayScreenProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const haptics = useHaptics();
+  const { completeTask } = useOptimisticTasks();
+  const { logHabit } = useOptimisticHabits();
+
   const {
     briefing,
     briefingLoading,
@@ -38,10 +42,11 @@ export default function TodayScreen({ navigation }: TodayScreenProps) {
     sendMessage,
   } = useAlfred();
 
-  const { tasks, habits, setTasks, setHabits } = useAlfredStore();
+  const { habits, setHabits } = useAlfredStore();
 
   const [refreshing, setRefreshing] = useState(false);
   const [todayData, setTodayData] = useState<any>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Load data on mount
   useEffect(() => {
@@ -58,14 +63,17 @@ export default function TodayScreen({ navigation }: TodayScreenProps) {
       setHabits([...habitsData.pending, ...habitsData.completed]);
     } catch (err) {
       console.error('Failed to load today data:', err);
+    } finally {
+      setIsInitialLoad(false);
     }
   };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    haptics.pullRefresh();
     await loadData();
     setRefreshing(false);
-  }, []);
+  }, [haptics]);
 
   const handleConversationSubmit = async (message: string) => {
     try {
@@ -80,20 +88,18 @@ export default function TodayScreen({ navigation }: TodayScreenProps) {
   };
 
   const handleLogHabit = async (habitId: string) => {
-    try {
-      await habitsApi.log(habitId);
+    const result = await logHabit(habitId);
+    if (result.success) {
+      // Refresh to sync with server
       loadData();
-    } catch (err) {
-      console.error('Failed to log habit:', err);
     }
   };
 
   const handleCompleteTask = async (taskId: string) => {
-    try {
-      await tasksApi.complete(taskId);
+    const success = await completeTask(taskId);
+    if (success) {
+      // Refresh to sync with server
       loadData();
-    } catch (err) {
-      console.error('Failed to complete task:', err);
     }
   };
 
@@ -113,15 +119,9 @@ export default function TodayScreen({ navigation }: TodayScreenProps) {
     });
   };
 
-  if (briefingLoading && !todayData) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.bg }]}>
-        <AlfredAvatar state="thinking" size="lg" />
-        <Text variant="body" color="secondary" style={styles.loadingText}>
-          Preparing your day...
-        </Text>
-      </View>
-    );
+  // Show skeleton on initial load
+  if (isInitialLoad && !todayData) {
+    return <TodayScreenSkeleton />;
   }
 
   const focusTask = todayData?.focus?.high_priority_tasks?.[0];
@@ -407,14 +407,6 @@ function getPriorityColor(priority: string, theme: any): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
   },
   scrollView: {
     flex: 1,
