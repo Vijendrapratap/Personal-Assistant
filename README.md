@@ -1,313 +1,291 @@
-# Alfred - The Digital Butler
+# Alfred - Your Personal Digital Butler
 
 > *"Very good, Sir. I shall attend to it at once."*
 
-Alfred is an **Agentic Personal Assistant** designed to be your proactive digital chief of staff. Unlike passive AI chatbots that wait for instructions, Alfred actively manages your projects, tracks your habits, and keeps you accountable—all while maintaining the demeanor of a professional British butler.
-
-## The Vision
-
-Traditional AI assistants are **reactive**—they respond when prompted but forget everything between sessions. Alfred is different:
-
-- **Proactive**: Sends morning briefings, evening reviews, and timely nudges without being asked
-- **Stateful**: Remembers your projects, preferences, and patterns across sessions
-- **Context-Aware**: Understands your roles (Founder, COO, PM) and adapts accordingly
-- **Personality-Driven**: Maintains a consistent butler persona that can be customized
-
-## What Makes Alfred Different?
-
-| Feature | ChatGPT/Gemini/Claude | Alfred |
-|---------|----------------------|--------|
-| Memory | Session-based | Persistent knowledge graph |
-| Behavior | Passive (waits for input) | Proactive (sends reminders) |
-| Context | Generic | Role-aware (knows your projects) |
-| Notifications | None | Push notifications & briefings |
-| Task Tracking | Conversational only | Integrated task management |
-| Habit Tracking | None | Built-in with streaks |
+**Alfred is an AI-powered personal assistant that actually remembers you.** Unlike ChatGPT or Siri that forget everything between sessions, Alfred keeps track of your projects, habits, relationships, and life—so you don't have to.
 
 ---
 
-## Architecture
+## Why Alfred?
 
-Alfred follows **Clean Architecture** principles with clear separation of concerns:
+We all juggle too much. Projects at work. Personal goals. People to follow up with. Things we said we'd do. Important dates we can't forget.
 
-```
-alfred/
-├── core/                    # Domain Layer (Pure Business Logic)
-│   ├── entities.py          # Project, Task, Habit, User models
-│   ├── interfaces.py        # Abstract contracts (ports)
-│   ├── butler.py            # Core Alfred personality & logic
-│   └── proactive_engine.py  # Briefings & scheduled actions
-│
-├── infrastructure/          # Adapters Layer (External Integrations)
-│   ├── llm/                 # LLM providers (OpenAI, Ollama)
-│   ├── storage/             # Database adapters (PostgreSQL)
-│   ├── knowledge/           # Knowledge graph (Neo4j)
-│   └── notifications/       # Push notifications (Expo)
-│
-├── api/                     # Interface Layer (REST API)
-│   ├── auth.py              # Authentication endpoints
-│   ├── projects.py          # Project management
-│   ├── tasks.py             # Task management
-│   ├── habits.py            # Habit tracking
-│   ├── dashboard.py         # Aggregated views
-│   └── notifications.py     # Push notification management
-│
-└── main.py                  # FastAPI application entry
+**The problem?** Your brain isn't built to be a database. And current AI assistants are goldfish—helpful in the moment, but they forget you exist the second you close the app.
 
-mobile/                      # React Native Mobile App
-├── src/
-│   ├── screens/             # UI screens
-│   │   ├── DashboardScreen  # Today's overview
-│   │   ├── ProjectsScreen   # Project management
-│   │   ├── TasksScreen      # Task management
-│   │   ├── HabitsScreen     # Habit tracking
-│   │   └── ChatScreen       # Conversation with Alfred
-│   ├── api/                 # API client & services
-│   └── services/            # Push notifications
-└── App.tsx                  # Navigation & app shell
-```
-
-### Data Flow
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Mobile    │────▶│   FastAPI   │────▶│  PostgreSQL │
-│    App      │◀────│   Backend   │◀────│  (Storage)  │
-└─────────────┘     └──────┬──────┘     └─────────────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │  OpenAI  │ │  Neo4j   │ │   Expo   │
-        │  (LLM)   │ │ (Graph)  │ │  (Push)  │
-        └──────────┘ └──────────┘ └──────────┘
-```
+**Alfred is different.** He's your external brain. Your digital chief of staff. He remembers what you told him last week, nudges you before deadlines, and actually understands the context of your life.
 
 ---
 
-## Tech Stack
+## What Can Alfred Do For You?
 
-### Backend
+### Keep Track of Everything
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| **Language** | Python 3.11+ | Core backend language |
-| **API Framework** | FastAPI | REST API with async support |
-| **Primary Database** | PostgreSQL | User data, projects, tasks, habits |
-| **Knowledge Graph** | Neo4j | Long-term memory & relationships |
-| **Vector Database** | Qdrant | Semantic search & context retrieval |
-| **LLM Provider** | OpenAI / Ollama | Natural language understanding |
-| **Agent Framework** | Agno | Tool use & MCP integration |
-| **Push Notifications** | Expo Push | Mobile notifications |
+| What You Tell Alfred | What Alfred Remembers |
+|---------------------|----------------------|
+| "I need to follow up with Priya about the contract" | Who Priya is, which contract, and reminds you in 3 days |
+| "The board meeting is next Tuesday" | Alerts you the day before to prep, includes past meeting context |
+| "I want to exercise 4x per week" | Tracks your streak, nudges you when you miss a day |
+| "I'm working on 3 startups right now" | Keeps separate context for each, switches seamlessly |
 
-### Mobile App
+### Start Your Day Right
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| **Framework** | React Native + Expo | Cross-platform mobile |
-| **Navigation** | React Navigation | Screen routing & tabs |
-| **Chat UI** | Gifted Chat | Conversation interface |
-| **HTTP Client** | Axios | API communication |
-| **Secure Storage** | Expo SecureStore | JWT token storage |
-| **Notifications** | Expo Notifications | Push notification handling |
+Every morning, Alfred sends you a personalized briefing:
 
-### DevOps & Infrastructure
+```
+Good morning, Sir.
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| **Containerization** | Docker | Consistent environments |
-| **Database Hosting** | Self-hosted / Cloud | Your data, your control |
-| **API Documentation** | OpenAPI/Swagger | Auto-generated at `/docs` |
+Today's priorities:
+• Call with investors at 2 PM (prep notes attached)
+• Follow up with Priya - contract pending since last week
+• Day 12 of your exercise streak - don't break it!
 
----
+3 tasks overdue. 2 habits due today.
+Shall I walk you through them?
+```
 
-## Key Features
+### Stay On Top of Your Habits
 
-### 1. Project Management
-- Track multiple projects with different roles (Founder, COO, PM, Developer)
-- Log daily updates with blockers and action items
-- Health score calculation based on activity
-- Organization-level grouping
+- **Track any habit** - Exercise, reading, meditation, journaling
+- **Maintain streaks** - See your progress, get motivated
+- **Gentle nudges** - Alfred reminds you at the right time
+- **No judgment** - Missed a day? Alfred helps you get back on track
 
-### 2. Task Management
-- Priority-based task lists (High, Medium, Low)
-- Status workflow (Pending → In Progress → Blocked → Completed)
-- Due date tracking with overdue alerts
-- Project association for context
+### Manage Projects Across Roles
 
-### 3. Habit Tracking
-- Daily, weekly, or custom frequency habits
-- Streak tracking with best streak records
-- Category organization (Fitness, Productivity, Learning, etc.)
-- Motivation reminders
+Whether you're a founder, employee, freelancer, or all three—Alfred adapts:
 
-### 4. Proactive Notifications
-- **Morning Briefing**: Today's priorities, pending tasks, habits due
-- **Evening Review**: What was accomplished, what's pending
-- **Habit Reminders**: Timely nudges to maintain streaks
-- **Task Due Alerts**: Before deadlines hit
-- **Project Nudges**: When projects need attention
+- **Track multiple projects** with different contexts
+- **Log daily updates** with blockers and wins
+- **See health scores** - know which projects need attention
+- **Switch contexts** seamlessly between work and personal
 
-### 5. Knowledge Graph
-- Learns facts about you over time
-- Understands relationships (people, projects, concepts)
-- Provides contextual responses based on history
-- Pattern recognition for personalized suggestions
+### Never Forget a Follow-up
 
-### 6. Butler Personality
-- Professional, polite, slightly witty responses
-- Customizable interaction style (Formal, Casual, Sarcastic)
-- Consistent persona across all interactions
-- "Sir/Madam" addressing based on preference
+- "Remind me to check in with [person] next week"
+- "Follow up on [topic] in 3 days"
+- Alfred remembers relationships and past conversations
 
 ---
 
-## Getting Started
+## Connect Your Apps
 
-### Prerequisites
+Alfred becomes more powerful when connected to your digital life:
 
-- Python 3.11+
-- Node.js 18+ & npm
-- PostgreSQL 14+
-- Neo4j 5+ (optional, for knowledge graph)
-- Expo Go app (for mobile testing)
+| Integration | What Alfred Can Do |
+|-------------|-------------------|
+| **Google Calendar** | Know your schedule, schedule meetings, warn about conflicts |
+| **Gmail / Outlook** | Summarize emails, draft responses, remind you to reply |
+| **Slack / Teams** | Send messages, summarize channels, stay in the loop |
+| **Google Drive / Dropbox** | Find documents, reference past work |
+| **Apple Health / Fitbit** | Track sleep, suggest schedule adjustments |
+| **Financial Tools** | Bill reminders, spending insights |
 
-### 1. Backend Setup
+*Integrations are added progressively. Start simple, connect more over time.*
+
+---
+
+## How to Hire Alfred
+
+Getting Alfred as your personal assistant takes just a few minutes.
+
+### Quick Start (5 Minutes)
+
+**1. Get the Backend Running**
 
 ```bash
-# Clone the repository
+# Clone Alfred
 git clone https://github.com/yourusername/alfred.git
 cd alfred
 
-# Create and activate virtual environment
+# Set up Python environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
+# Configure your API key
 cp .env.example .env
-# Edit .env with your settings:
-#   OPENAI_API_KEY=your_key
-#   DATABASE_URL=postgresql://user:pass@localhost:5432/alfred_db
-#   NEO4J_URI=bolt://localhost:7687 (optional)
+# Edit .env and add your OPENAI_API_KEY
 
-# Run database migrations (tables auto-create on first run)
-
-# Start the server
+# Start Alfred
 uvicorn alfred.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 2. Seed Sample Data (Optional)
-
-```bash
-# Load Pratap's sample projects, tasks, and habits
-python scripts/seed_pratap_data.py
-
-# Login credentials after seeding:
-# Email: pratap@codesstellar.com
-# Password: alfred123
-```
-
-### 3. Mobile App Setup
+**2. Get the Mobile App**
 
 ```bash
 cd mobile
-
-# Install dependencies
 npm install
-
-# Start Expo development server
 npx expo start
-
-# Run on specific platform
-npm run android  # Android Emulator
-npm run ios      # iOS Simulator (macOS only)
 ```
 
-**Note**: For Android Emulator, the app uses `10.0.2.2:8000` to reach localhost. For physical devices, update `mobile/src/api/client.ts` with your machine's IP address.
+Scan the QR code with Expo Go on your phone, and you're in.
+
+**3. Create Your Account**
+
+Open the app, sign up, and start talking to Alfred. It's that simple.
 
 ---
 
-## API Overview
+## What Makes Alfred Different?
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/auth/signup` | POST | Create new account |
-| `/auth/login` | POST | Authenticate user |
-| `/auth/profile` | GET/PUT | User profile management |
-| `/chat` | POST | Converse with Alfred |
-| `/projects` | CRUD | Project management |
-| `/projects/{id}/updates` | POST/GET | Project updates |
-| `/tasks` | CRUD | Task management |
-| `/tasks/{id}/complete` | POST | Mark task complete |
-| `/habits` | CRUD | Habit management |
-| `/habits/{id}/log` | POST | Log habit completion |
-| `/dashboard/today` | GET | Today's overview |
-| `/dashboard/briefing/morning` | GET | Morning briefing |
-| `/notifications/register-token` | POST | Register push token |
+| Feature | ChatGPT / Siri / Google | Alfred |
+|---------|------------------------|--------|
+| **Memory** | Forgets after session | Remembers everything |
+| **Proactive** | Waits for you to ask | Sends reminders & briefings |
+| **Context** | Generic responses | Knows your projects, people, patterns |
+| **Notifications** | None | Morning briefings, timely nudges |
+| **Habits** | Can't track | Built-in with streaks |
+| **Multi-project** | No understanding | Role-aware context switching |
 
-Full API documentation available at `http://localhost:8000/docs` when running.
+---
+
+## Alfred Adapts to You
+
+Alfred isn't just for tech workers. He learns YOUR vocabulary and YOUR world.
+
+**For Startup Founders:**
+- Track OKRs, runway, investor relationships
+- Prepare for board meetings
+- Manage across multiple ventures
+
+**For Doctors:**
+- Patient follow-up reminders
+- Prescription renewal tracking
+- Appointment context
+
+**For Lawyers:**
+- Case deadline tracking
+- Court date management
+- Client communication logs
+
+**For Fitness Coaches:**
+- Client progress tracking
+- Workout plan management
+- Session scheduling
+
+**For Anyone:**
+- Personal goals and habits
+- Relationship maintenance
+- Life organization
+
+Alfred learns what matters to YOU.
+
+---
+
+## Your Data, Your Control
+
+- **Self-hosted** - Run Alfred on your own servers
+- **Privacy first** - Your data never trains AI models
+- **Export anytime** - Download everything you've told Alfred
+- **Delete anytime** - Full right to be forgotten
+
+---
+
+## The Vision: Your External Brain
+
+Alfred grows with you:
+
+```
+Level 1: "Remind me to call mom tomorrow"
+    ↓
+Level 2: "Track my habits and keep me accountable"
+    ↓
+Level 3: "Manage my projects across multiple roles"
+    ↓
+Level 4: "Understand my whole life context"
+    ↓
+Level 5: "Be my strategic thinking partner"
+```
+
+Start simple. Let Alfred become indispensable.
+
+---
+
+## Technical Overview
+
+For developers who want to understand or contribute:
+
+### Architecture
+
+```
+alfred/                 # Python Backend (FastAPI)
+├── core/               # Business logic & personality
+├── infrastructure/     # Database, LLM, notifications
+├── api/                # REST endpoints
+└── main.py             # Application entry
+
+mobile/                 # React Native + Expo
+├── src/screens/        # UI screens
+├── src/api/            # API client
+└── App.tsx             # Navigation
+```
+
+### Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **API** | FastAPI (Python 3.11+) |
+| **Database** | PostgreSQL |
+| **Knowledge Graph** | Neo4j |
+| **Vector Search** | Qdrant |
+| **LLM** | OpenAI GPT-4 / Ollama |
+| **Mobile** | React Native + Expo |
+| **Notifications** | Expo Push |
+
+### Prerequisites
+
+- Python 3.11+
+- Node.js 18+
+- PostgreSQL 14+
+- OpenAI API key (or Ollama for local LLM)
+
+### API Documentation
+
+Once running, visit `http://localhost:8000/docs` for the full API reference.
 
 ---
 
 ## Documentation
 
-### Product & Strategy
-- [**PRODUCT_VISION.md**](docs/PRODUCT_VISION.md) - Vision, dynamic memory architecture, user personas, phased roadmap
-- [**FEATURE_SPECIFICATION.md**](docs/FEATURE_SPECIFICATION.md) - Detailed feature specs with implementation requirements
-
-### Architecture & Design
-- [**ARCHITECTURE.md**](docs/ARCHITECTURE.md) - Full system architecture with diagrams
-- [**DATABASE_SCHEMA.md**](docs/DATABASE_SCHEMA.md) - PostgreSQL tables, indexes, and queries
-- [**VECTOR_AND_KNOWLEDGE_GRAPH.md**](docs/VECTOR_AND_KNOWLEDGE_GRAPH.md) - Qdrant & Neo4j integration
-- [**QUICK_REFERENCE.md**](docs/QUICK_REFERENCE.md) - Developer quick lookup guide
-
-### Additional Resources
-- [MCP Setup](docs/MCP_SETUP.md) - Model Context Protocol integration
-- [API Docs](http://localhost:8000/docs) - Auto-generated OpenAPI docs (when running)
-
----
-
-## Project Structure
-
-```
-Personal-Assistant/
-├── alfred/                 # Python backend
-├── mobile/                 # React Native app
-├── scripts/                # Utility scripts
-│   └── seed_pratap_data.py # Sample data loader
-├── docs/                   # Documentation
-├── docker-compose.yml      # Container orchestration
-├── requirements.txt        # Python dependencies
-└── README.md               # You are here
-```
+| Document | Description |
+|----------|-------------|
+| [Product Vision](docs/PRODUCT_VISION.md) | Vision, memory architecture, user personas |
+| [Feature Specification](docs/FEATURE_SPECIFICATION.md) | Detailed feature breakdowns |
+| [Architecture](docs/ARCHITECTURE.md) | System design & diagrams |
+| [Database Schema](docs/DATABASE_SCHEMA.md) | Data models & relationships |
+| [Quick Reference](docs/QUICK_REFERENCE.md) | Developer lookup guide |
 
 ---
 
 ## Roadmap
 
-- [ ] Voice interaction (Speech-to-Text, Text-to-Speech)
-- [ ] Calendar integration (Google Calendar, Outlook)
-- [ ] Email integration for briefings
+- [x] Core conversation interface
+- [x] Task and project management
+- [x] Habit tracking with streaks
+- [x] Push notifications & briefings
+- [x] Mobile app (iOS/Android)
+- [ ] Voice interaction
+- [ ] Calendar integration
+- [ ] Email integration
 - [ ] Web dashboard
-- [ ] Multi-user support (teams)
-- [ ] Plugin system for custom integrations
-- [ ] Apple Watch / Wear OS companion apps
+- [ ] Team/multi-user support
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please read the contributing guidelines before submitting PRs.
+Contributions welcome! Whether it's bug fixes, new features, or documentation improvements.
 
 ---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-*"Will there be anything else, Sir?"*
+<p align="center">
+  <i>"Will there be anything else, Sir?"</i>
+</p>

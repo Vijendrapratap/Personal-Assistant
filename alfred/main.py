@@ -1,9 +1,4 @@
 import os
-import sys
-
-# Ensure module path alignment
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -28,17 +23,17 @@ from alfred.infrastructure.scheduler.scheduler import get_scheduler
 from alfred.core.config_manager import get_config_manager, ConfigValidationError
 from alfred.core.orchestrator import Orchestrator, OrchestratorConfig
 
-# Global references for dependency injection
+# Global service instances
 llm_provider = None
 storage_provider = None
-alfred = None  # Legacy butler (for backward compatibility)
-orchestrator = None  # New multi-agent orchestrator
+alfred = None
+orchestrator = None
 proactive_engine = None
 push_service = None
 scheduler = None
 config_manager = None
 
-# Feature flag: Use new orchestrator or legacy butler
+# Use multi-agent orchestrator (default: true)
 USE_ORCHESTRATOR = os.getenv("ALFRED_USE_ORCHESTRATOR", "true").lower() == "true"
 
 

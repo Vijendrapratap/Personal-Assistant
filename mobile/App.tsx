@@ -40,56 +40,16 @@ import VoiceSettingsScreen from './src/screens/VoiceSettingsScreen';
 import IntegrationsScreen from './src/screens/IntegrationsScreen';
 import AboutScreen from './src/screens/AboutScreen';
 
-// Legacy Screens (for backward compatibility)
+// Legacy Screens (still used for detail views)
 import ProfileScreen from './src/screens/ProfileScreen';
-import DashboardScreen from './src/screens/DashboardScreen';
 import ProjectsScreen from './src/screens/ProjectsScreen';
 import TasksScreen from './src/screens/TasksScreen';
 import HabitsScreen from './src/screens/HabitsScreen';
-import ChatScreen from './src/screens/ChatScreen';
 
 import { getAuthToken } from './src/api/client';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
-
-// Placeholder Focus Screen until Phase 1.3
-function FocusScreenPlaceholder({ navigation }: any) {
-    const { theme } = useTheme();
-    return (
-        <View style={[placeholderStyles.container, { backgroundColor: theme.colors.bg }]}>
-            <Text style={[placeholderStyles.icon]}>📅</Text>
-            <Text style={[placeholderStyles.title, { color: theme.colors.textPrimary }]}>
-                Focus
-            </Text>
-            <Text style={[placeholderStyles.subtitle, { color: theme.colors.textSecondary }]}>
-                Calendar & Voice interface coming soon
-            </Text>
-        </View>
-    );
-}
-
-const placeholderStyles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 40,
-    },
-    icon: {
-        fontSize: 48,
-        marginBottom: 16,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: '700',
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 15,
-        textAlign: 'center',
-    },
-});
 
 // Tab bar icons
 const TabIcon = ({ name, focused, theme }: { name: string; focused: boolean; theme: any }) => {

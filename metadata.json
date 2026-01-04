@@ -1,7 +1,0 @@
-{
-  "name": "Alfred",
-  "description": "A proactive, intelligent personal assistant that aggregates your work life, manages priorities, and learns from your decisions.",
-  "requestFramePermissions": [
-    "microphone"
-  ]
-}
