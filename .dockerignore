@@ -1,0 +1,44 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Mobile app (not needed for backend)
+mobile/
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Documentation (not needed in container)
+docs/
+*.md
+!README.md
+
+# Development files
+.env.local
+.env.development
+*.log
+.claude/
+
+# Test files
+tests/
+*_test.py
+test_*.py
+
+# Scripts (dev only)
+scripts/
+setup.sh

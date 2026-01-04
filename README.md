@@ -88,14 +88,40 @@ Alfred becomes more powerful when connected to your digital life:
 
 Getting Alfred as your personal assistant takes just a few minutes.
 
-### Quick Start (5 Minutes)
+### Option 1: Docker (Recommended)
 
-**1. Get the Backend Running**
+The fastest way to get Alfred running with all services:
 
 ```bash
 # Clone Alfred
-git clone https://github.com/yourusername/alfred.git
-cd alfred
+git clone https://github.com/Vijendrapratap/Personal-Assistant.git
+cd Personal-Assistant
+
+# Configure your API key
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY
+
+# Start everything with Docker
+docker compose up -d
+
+# Alfred is now running at http://localhost:8000
+```
+
+That's it! Docker handles PostgreSQL, and everything is configured automatically.
+
+**Want the full setup with Neo4j knowledge graph?**
+```bash
+docker compose --profile full up -d
+```
+
+### Option 2: Manual Setup
+
+If you prefer running without Docker:
+
+```bash
+# Clone Alfred
+git clone https://github.com/Vijendrapratap/Personal-Assistant.git
+cd Personal-Assistant
 
 # Set up Python environment
 python -m venv venv
@@ -108,11 +134,11 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env and add your OPENAI_API_KEY
 
-# Start Alfred
+# Start Alfred (uses SQLite by default - zero config!)
 uvicorn alfred.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**2. Get the Mobile App**
+### Get the Mobile App
 
 ```bash
 cd mobile
@@ -122,7 +148,7 @@ npx expo start
 
 Scan the QR code with Expo Go on your phone, and you're in.
 
-**3. Create Your Account**
+### Create Your Account
 
 Open the app, sign up, and start talking to Alfred. It's that simple.
 
