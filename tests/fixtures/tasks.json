@@ -1,0 +1,48 @@
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "user_id": "user-001",
+      "title": "Review Alfred architecture",
+      "description": "Go through the CLAUDE.md and ensure implementation matches spec",
+      "status": "pending",
+      "priority": "high",
+      "due_date": "2026-01-10",
+      "project_id": "project-alfred",
+      "tags": ["development", "alfred"]
+    },
+    {
+      "id": "task-002",
+      "user_id": "user-001",
+      "title": "Set up CI/CD pipelines",
+      "description": "Configure GitHub Actions for backend and mobile",
+      "status": "completed",
+      "priority": "high",
+      "due_date": "2026-01-06",
+      "project_id": "project-alfred",
+      "tags": ["devops", "ci-cd"]
+    },
+    {
+      "id": "task-003",
+      "user_id": "user-001",
+      "title": "Implement LLM factory pattern",
+      "description": "Create abstraction layer for multiple LLM providers",
+      "status": "pending",
+      "priority": "medium",
+      "due_date": "2026-01-15",
+      "project_id": "project-alfred",
+      "tags": ["development", "llm"]
+    },
+    {
+      "id": "task-004",
+      "user_id": "user-002",
+      "title": "Morning workout",
+      "description": "30 minutes cardio",
+      "status": "pending",
+      "priority": "medium",
+      "due_date": "2026-01-06",
+      "project_id": null,
+      "tags": ["health", "daily"]
+    }
+  ]
+}

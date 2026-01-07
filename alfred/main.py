@@ -1,8 +1,16 @@
+"""
+Alfred - The Digital Butler
+
+Main FastAPI application entry point with modern architecture.
+"""
+
 import os
-from fastapi import FastAPI, HTTPException, Depends
+import logging
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
+from typing import Optional, Dict, Any
 import asyncio
 import json
 from dotenv import load_dotenv
@@ -11,6 +19,14 @@ from contextlib import asynccontextmanager
 # Load env vars
 load_dotenv()
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("alfred")
+
+# Legacy imports
 from alfred.config import get_llm_provider
 from alfred.core.butler import Alfred
 from alfred.infrastructure.storage.postgres_db import PostgresAdapter
@@ -23,6 +39,29 @@ from alfred.infrastructure.scheduler.scheduler import get_scheduler
 from alfred.core.config_manager import get_config_manager, ConfigValidationError
 from alfred.core.orchestrator import Orchestrator, OrchestratorConfig
 
+# Middleware imports
+from alfred.api.middleware import (
+    JWTAuthMiddleware,
+    AuthConfig,
+    RequestLoggingMiddleware,
+    LoggingConfig,
+    RateLimitMiddleware,
+    RateLimitConfig,
+    ErrorHandlerMiddleware,
+)
+
+# Services imports
+from alfred.core.services import (
+    ChatService,
+    TaskService,
+    HabitService,
+    ProjectService,
+    BriefingService,
+)
+
+# Connectors imports
+from alfred.core.connectors import ConnectorManager, get_connector_registry
+
 # Global service instances
 llm_provider = None
 storage_provider = None
@@ -33,15 +72,56 @@ push_service = None
 scheduler = None
 config_manager = None
 
+# New architecture services
+chat_service: Optional[ChatService] = None
+task_service: Optional[TaskService] = None
+habit_service: Optional[HabitService] = None
+project_service: Optional[ProjectService] = None
+briefing_service: Optional[BriefingService] = None
+connector_manager: Optional[ConnectorManager] = None
+
 # Use multi-agent orchestrator (default: true)
 USE_ORCHESTRATOR = os.getenv("ALFRED_USE_ORCHESTRATOR", "true").lower() == "true"
+
+# Debug mode
+DEBUG = os.getenv("ALFRED_DEBUG", "false").lower() == "true"
+
+
+def init_services(storage, llm, notification_provider=None, knowledge_graph=None):
+    """Initialize all service layer components."""
+    global chat_service, task_service, habit_service, project_service, briefing_service
+
+    common_kwargs = {
+        "storage": storage,
+        "knowledge_graph": knowledge_graph,
+        "notification_provider": notification_provider,
+    }
+
+    task_service = TaskService(**common_kwargs)
+    habit_service = HabitService(**common_kwargs)
+    project_service = ProjectService(**common_kwargs)
+    briefing_service = BriefingService(**common_kwargs)
+    chat_service = ChatService(llm_provider=llm, **common_kwargs)
+
+    logger.info("Service layer initialized")
+
+
+def init_connectors(storage):
+    """Initialize connector manager."""
+    global connector_manager
+
+    connector_manager = ConnectorManager(storage=storage)
+
+    # Register built-in connectors
+    registry = get_connector_registry()
+    logger.info(f"Connector registry initialized with {len(registry.connector_types)} types")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     global llm_provider, storage_provider, alfred, orchestrator, proactive_engine
-    global push_service, scheduler, config_manager
+    global push_service, scheduler, config_manager, connector_manager
 
     # Startup
     try:
@@ -49,11 +129,10 @@ async def lifespan(app: FastAPI):
         try:
             config_manager = get_config_manager()
             config = config_manager.get_config()
-            print(f"Alfred Config: {config_manager.validate()}")
+            logger.info(f"Alfred Config: {config_manager.validate()}")
         except ConfigValidationError as e:
-            print(f"Config validation failed: {e}")
-            print(config_manager.get_setup_instructions() if config_manager else "")
-            # Fall back to legacy config
+            logger.warning(f"Config validation failed: {e}")
+            logger.info(config_manager.get_setup_instructions() if config_manager else "")
             config_manager = None
 
         # Initialize LLM provider
@@ -63,11 +142,11 @@ async def lifespan(app: FastAPI):
         db_url = os.getenv("DATABASE_URL")
         if db_url:
             storage_provider = PostgresAdapter(db_url)
-            print("Using PostgreSQL database")
+            logger.info("Using PostgreSQL database")
         else:
             # Fallback to SQLite - zero config!
             storage_provider = SQLiteAdapter()
-            print(f"Using SQLite database at {storage_provider.db_path}")
+            logger.info(f"Using SQLite database at {storage_provider.db_path}")
 
         # Initialize the appropriate core
         if USE_ORCHESTRATOR and storage_provider:
@@ -80,17 +159,32 @@ async def lifespan(app: FastAPI):
                     alfred_personality="butler"
                 )
             )
-            print(f"Alfred Orchestrator initialized with {len(orchestrator.get_available_agents())} agents")
+            logger.info(f"Alfred Orchestrator initialized with {len(orchestrator.get_available_agents())} agents")
 
         # Always initialize legacy butler for backward compatibility
         alfred = Alfred(brain=llm_provider, storage=storage_provider)
-        print(f"Alfred initialized with Brain: {type(llm_provider).__name__}, "
-              f"Storage: {type(storage_provider).__name__ if storage_provider else 'None'}")
+        logger.info(f"Alfred initialized with Brain: {type(llm_provider).__name__}, "
+                    f"Storage: {type(storage_provider).__name__ if storage_provider else 'None'}")
+
+        # Initialize notification service
+        push_service = ExpoPushService()
+
+        # Initialize service layer
+        if storage_provider:
+            init_services(
+                storage=storage_provider,
+                llm=llm_provider,
+                notification_provider=push_service,
+            )
+
+            # Initialize connectors
+            init_connectors(storage=storage_provider)
+            if connector_manager:
+                await connector_manager.initialize()
 
         # Initialize proactive components
         if storage_provider:
             proactive_engine = ProactiveEngine(storage=storage_provider, llm=llm_provider)
-            push_service = ExpoPushService()
 
             # Initialize and start the scheduler
             scheduler = get_scheduler()
@@ -100,28 +194,86 @@ async def lifespan(app: FastAPI):
                 push_service=push_service
             ):
                 scheduler.start()
-                print("Alfred Scheduler started with proactive intelligence")
+                logger.info("Alfred Scheduler started with proactive intelligence")
             else:
-                print("Warning: Scheduler could not be initialized (APScheduler may not be installed)")
+                logger.warning("Scheduler could not be initialized (APScheduler may not be installed)")
 
     except Exception as e:
-        print(f"CRITICAL ERROR Initializing Alfred: {e}")
+        logger.error(f"CRITICAL ERROR Initializing Alfred: {e}")
         raise e
 
     yield
 
     # Shutdown
+    logger.info("Alfred shutting down...")
+
+    if connector_manager:
+        await connector_manager.shutdown()
+
     if scheduler:
         scheduler.shutdown()
-    print("Alfred shutting down...")
 
 
 # Create FastAPI app
 app = FastAPI(
     title="Alfred - The Digital Butler",
     description="A proactive, intelligent personal assistant that manages your time, tasks, and habits.",
-    version="2.0.0",
-    lifespan=lifespan
+    version="2.1.0",
+    lifespan=lifespan,
+    docs_url="/docs" if DEBUG else None,
+    redoc_url="/redoc" if DEBUG else None,
+)
+
+# =========================================
+# Middleware Configuration
+# =========================================
+
+# Error handling (outermost - catches all errors)
+app.add_middleware(ErrorHandlerMiddleware, debug=DEBUG)
+
+# Rate limiting
+app.add_middleware(
+    RateLimitMiddleware,
+    config=RateLimitConfig(
+        requests_per_minute=60,
+        burst_size=10,
+        endpoint_limits={
+            "/chat": 30,
+            "/chat/stream": 30,
+            "/voice/transcribe": 20,
+            "/auth/login": 10,
+            "/auth/signup": 5,
+        },
+    ),
+)
+
+# Request logging
+app.add_middleware(
+    RequestLoggingMiddleware,
+    config=LoggingConfig(
+        log_request_body=DEBUG,
+        log_response_body=DEBUG,
+        slow_request_threshold_ms=2000.0,
+    ),
+)
+
+# JWT Authentication
+app.add_middleware(
+    JWTAuthMiddleware,
+    config=AuthConfig(
+        public_paths=(
+            "/",
+            "/health",
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            "/auth/login",
+            "/auth/signup",
+            "/auth/refresh",
+            "/setup/status",
+            "/setup/integrations",
+        ),
+    ),
 )
 
 # CORS middleware for mobile/web access
@@ -135,6 +287,7 @@ app.add_middleware(
 
 # Import and include routers
 from alfred.api import auth, projects, tasks, habits, dashboard, notifications, proactive, knowledge, voice
+from alfred.api import connectors as connectors_api
 
 app.include_router(auth.router)
 app.include_router(projects.router)
@@ -145,25 +298,79 @@ app.include_router(notifications.router)
 app.include_router(proactive.router)
 app.include_router(knowledge.router)
 app.include_router(voice.router)
+app.include_router(connectors_api.router)
 
 
-# --- API Layer ---
+# =========================================
+# API Models
+# =========================================
+
 class ChatRequest(BaseModel):
     message: str
-    context: dict = None  # Optional additional context
+    conversation_id: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
 
 
 class ChatResponse(BaseModel):
     response: str
-    metadata: dict = None
+    conversation_id: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
 
+
+class SetupStatusResponse(BaseModel):
+    """Response for setup status check."""
+    is_configured: bool
+    llm_provider: Optional[str] = None
+    database_type: Optional[str] = None
+    knowledge_graph: Optional[str] = None
+    missing: list = []
+    instructions: Optional[str] = None
+
+
+class SetupRequest(BaseModel):
+    """Request to configure Alfred."""
+    openai_api_key: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
+
+
+# =========================================
+# Chat Endpoints
+# =========================================
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest, current_user_id: str = Depends(auth.get_current_user)):
-    """Chat with Alfred using multi-agent orchestration."""
-    global alfred, orchestrator
+async def chat(req: ChatRequest, request: Request):
+    """
+    Chat with Alfred using multi-agent orchestration.
 
-    # Use orchestrator if available, fall back to legacy butler
+    Uses the new service layer when available, falling back to legacy butler.
+    """
+    global alfred, orchestrator, chat_service
+
+    # Get user from request state (set by auth middleware)
+    current_user_id = getattr(request.state, "user_id", None)
+    if not current_user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # Try new chat service first
+    if chat_service:
+        try:
+            result = await chat_service.process_message(
+                user_id=current_user_id,
+                message=req.message,
+                conversation_id=req.conversation_id,
+            )
+            return ChatResponse(
+                response=result["response"],
+                conversation_id=result.get("conversation_id"),
+                metadata={
+                    "engine": "agent_executor",
+                    "tool_calls": result.get("tool_calls_made", 0),
+                },
+            )
+        except Exception as e:
+            logger.warning(f"ChatService error, falling back: {e}")
+
+    # Use orchestrator if available
     if USE_ORCHESTRATOR and orchestrator:
         try:
             response_text = await orchestrator.process(req.message, current_user_id)
@@ -172,8 +379,7 @@ async def chat(req: ChatRequest, current_user_id: str = Depends(auth.get_current
                 metadata={"engine": "orchestrator", "agents": len(orchestrator.get_available_agents())}
             )
         except Exception as e:
-            print(f"Orchestrator error, falling back to butler: {e}")
-            # Fall through to legacy butler
+            logger.warning(f"Orchestrator error, falling back to butler: {e}")
 
     # Legacy butler
     if not alfred:
@@ -187,18 +393,45 @@ async def chat(req: ChatRequest, current_user_id: str = Depends(auth.get_current
 
 
 @app.post("/chat/stream")
-async def chat_stream(req: ChatRequest, current_user_id: str = Depends(auth.get_current_user)):
+async def chat_stream(req: ChatRequest, request: Request):
     """
     Stream chat response with thinking steps for transparency.
     Uses Server-Sent Events (SSE) to stream progress in real-time.
     """
-    global alfred
+    global alfred, chat_service
 
-    if not alfred:
-        raise HTTPException(status_code=503, detail="Alfred not initialized")
+    current_user_id = getattr(request.state, "user_id", None)
+    if not current_user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     async def generate_stream():
         try:
+            # Try streaming via chat service
+            if chat_service:
+                try:
+                    # Yield thinking steps
+                    yield f"data: {json.dumps({'type': 'thinking', 'step': {'step': 'Processing request', 'status': 'in_progress'}})}\n\n"
+
+                    full_response = []
+                    async for token in chat_service.process_message_streaming(
+                        user_id=current_user_id,
+                        message=req.message,
+                        conversation_id=req.conversation_id,
+                    ):
+                        full_response.append(token)
+                        yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
+
+                    yield f"data: {json.dumps({'type': 'response', 'content': ''.join(full_response)})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                    return
+                except Exception as e:
+                    logger.warning(f"ChatService streaming error: {e}")
+
+            # Fallback to legacy butler with simulated streaming
+            if not alfred:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Alfred not initialized'})}\n\n"
+                return
+
             # Stream thinking steps
             thinking_steps = [
                 {"step": "Understanding your request", "status": "in_progress"},
@@ -249,38 +482,38 @@ async def chat_stream(req: ChatRequest, current_user_id: str = Depends(auth.get_
     )
 
 
+# =========================================
+# Health & Status Endpoints
+# =========================================
+
 @app.get("/health")
 def health():
     """Health check endpoint."""
     return {
         "status": "online",
+        "version": "2.1.0",
         "brain": type(llm_provider).__name__ if llm_provider else "Not initialized",
         "storage": type(storage_provider).__name__ if storage_provider else "Not initialized",
         "orchestrator": "active" if orchestrator else "inactive",
         "agents": orchestrator.get_available_agents() if orchestrator else [],
-        "use_orchestrator": USE_ORCHESTRATOR
+        "use_orchestrator": USE_ORCHESTRATOR,
+        "services": {
+            "chat": chat_service is not None,
+            "tasks": task_service is not None,
+            "habits": habit_service is not None,
+            "projects": project_service is not None,
+            "briefing": briefing_service is not None,
+        },
+        "connectors": {
+            "manager": connector_manager is not None,
+            "types": get_connector_registry().connector_types if connector_manager else [],
+        },
     }
 
 
 # =========================================
 # Setup & Onboarding Endpoints
 # =========================================
-
-class SetupStatusResponse(BaseModel):
-    """Response for setup status check."""
-    is_configured: bool
-    llm_provider: str = None
-    database_type: str = None
-    knowledge_graph: str = None
-    missing: list = []
-    instructions: str = None
-
-
-class SetupRequest(BaseModel):
-    """Request to configure Alfred."""
-    openai_api_key: str = None
-    anthropic_api_key: str = None
-
 
 @app.get("/setup/status", response_model=SetupStatusResponse)
 def get_setup_status():
@@ -315,7 +548,7 @@ def get_setup_status():
     return SetupStatusResponse(
         is_configured=has_openai or has_anthropic,
         llm_provider="openai" if has_openai else ("anthropic" if has_anthropic else None),
-        database_type="postgres" if os.getenv("DATABASE_URL") else "none",
+        database_type="postgres" if os.getenv("DATABASE_URL") else "sqlite",
         missing=missing,
         instructions="Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable" if missing else None
     )
@@ -334,8 +567,6 @@ async def configure_alfred(req: SetupRequest):
         if not req.openai_api_key.startswith("sk-"):
             raise HTTPException(status_code=400, detail="Invalid OpenAI API key format")
 
-        # In production: securely store the key
-        # For now, return success with instructions
         return {
             "success": True,
             "message": "OpenAI API key validated",
@@ -358,54 +589,30 @@ async def configure_alfred(req: SetupRequest):
 @app.get("/setup/integrations")
 async def get_available_integrations():
     """Get list of available integrations."""
-    # Return available integrations
+    from alfred.core.connectors.registry import ConnectorCatalog
+
+    # Get from connector catalog
     return {
-        "available": [
-            {
-                "name": "google_calendar",
-                "display_name": "Google Calendar",
-                "description": "Sync with your Google Calendar",
-                "status": "available",
-                "requires_oauth": True
-            },
-            {
-                "name": "gmail",
-                "display_name": "Gmail",
-                "description": "Read and send emails",
-                "status": "coming_soon",
-                "requires_oauth": True
-            },
-            {
-                "name": "outlook",
-                "display_name": "Microsoft Outlook",
-                "description": "Calendar and email integration",
-                "status": "coming_soon",
-                "requires_oauth": True
-            },
-            {
-                "name": "todoist",
-                "display_name": "Todoist",
-                "description": "Sync tasks with Todoist",
-                "status": "coming_soon",
-                "requires_api_key": True
-            },
-            {
-                "name": "notion",
-                "display_name": "Notion",
-                "description": "Connect to your Notion workspace",
-                "status": "coming_soon",
-                "requires_oauth": True
-            }
-        ]
+        "available": ConnectorCatalog.get_all(),
+        "categories": {
+            "productivity": ConnectorCatalog.PRODUCTIVITY,
+            "communication": ConnectorCatalog.COMMUNICATION,
+            "development": ConnectorCatalog.DEVELOPMENT,
+            "smart_home": ConnectorCatalog.SMART_HOME,
+        },
     }
 
+
+# =========================================
+# Root Endpoint
+# =========================================
 
 @app.get("/")
 def root():
     """Root endpoint with API info."""
     return {
         "name": "Alfred - The Digital Butler",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "description": "Your proactive personal assistant",
         "endpoints": {
             "auth": "/auth",
@@ -418,7 +625,9 @@ def root():
             "notifications": "/notifications",
             "proactive": "/proactive",
             "knowledge": "/knowledge",
-            "voice": "/voice"
+            "voice": "/voice",
+            "connectors": "/connectors",
+            "setup": "/setup/status",
         }
     }
 

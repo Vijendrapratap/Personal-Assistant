@@ -1,7 +1,7 @@
 """
-OpenAI GPT LLM Provider.
+Groq LLM Provider.
 
-Supports GPT-4, GPT-4o, and other OpenAI models with tool calling.
+Supports fast inference with Llama and other models.
 """
 
 import json
@@ -17,47 +17,42 @@ from alfred.infrastructure.llm.base import (
 )
 
 
-class OpenAIProvider(BaseLLMProvider):
+class GroqProvider(BaseLLMProvider):
     """
-    OpenAI GPT provider.
+    Groq provider for fast LLM inference.
 
     Supports:
-    - GPT-4o, GPT-4 Turbo, GPT-4
-    - GPT-3.5 Turbo
-    - Tool calling (function calling)
-    - Streaming
+    - Llama 3.1 70B, 8B
+    - Mixtral
+    - Gemma
+    - Tool calling
     """
 
-    DEFAULT_MODEL = "gpt-4o"
+    DEFAULT_MODEL = "llama-3.1-70b-versatile"
 
     def __init__(
         self,
         api_key: str,
         model: Optional[str] = None,
-        organization: Optional[str] = None,
         **kwargs: Any,
     ):
         """
-        Initialize OpenAI provider.
+        Initialize Groq provider.
 
         Args:
-            api_key: OpenAI API key
-            model: Model name (defaults to gpt-4o)
-            organization: Optional organization ID
+            api_key: Groq API key
+            model: Model name
         """
         try:
-            from openai import AsyncOpenAI
+            from groq import AsyncGroq
         except ImportError:
             raise ImportError(
-                "openai package not installed. "
-                "Install with: pip install openai"
+                "groq package not installed. "
+                "Install with: pip install groq"
             )
 
         self._model = model or self.DEFAULT_MODEL
-        self.client = AsyncOpenAI(
-            api_key=api_key,
-            organization=organization,
-        )
+        self.client = AsyncGroq(api_key=api_key)
 
     @property
     def model_name(self) -> str:
@@ -66,35 +61,35 @@ class OpenAIProvider(BaseLLMProvider):
     def _convert_messages(
         self, messages: List[LLMMessage]
     ) -> List[Dict[str, Any]]:
-        """Convert messages to OpenAI format."""
-        openai_messages = []
+        """Convert messages to Groq format."""
+        groq_messages = []
 
         for msg in messages:
             if msg.role == "tool":
-                openai_messages.append({
+                groq_messages.append({
                     "role": "tool",
                     "tool_call_id": msg.tool_call_id,
                     "content": msg.content,
                 })
             else:
-                openai_messages.append({
+                groq_messages.append({
                     "role": msg.role,
                     "content": msg.content,
                 })
 
-        return openai_messages
+        return groq_messages
 
     def _convert_tools(
         self, tools: Optional[List[ToolDefinition]]
     ) -> Optional[List[Dict[str, Any]]]:
-        """Convert tools to OpenAI format."""
+        """Convert tools to Groq format (OpenAI-compatible)."""
         if not tools:
             return None
 
         return [tool.to_dict() for tool in tools]
 
     def _parse_response(self, response: Any) -> LLMResponse:
-        """Parse OpenAI response."""
+        """Parse Groq response."""
         message = response.choices[0].message
         content = message.content
         tool_calls = None
@@ -129,19 +124,19 @@ class OpenAIProvider(BaseLLMProvider):
         max_tokens: int = 4096,
         stop: Optional[List[str]] = None,
     ) -> LLMResponse:
-        """Generate completion using OpenAI."""
-        openai_messages = self._convert_messages(messages)
-        openai_tools = self._convert_tools(tools)
+        """Generate completion using Groq."""
+        groq_messages = self._convert_messages(messages)
+        groq_tools = self._convert_tools(tools)
 
         kwargs = {
             "model": self._model,
-            "messages": openai_messages,
+            "messages": groq_messages,
             "max_tokens": max_tokens,
             "temperature": temperature,
         }
 
-        if openai_tools:
-            kwargs["tools"] = openai_tools
+        if groq_tools:
+            kwargs["tools"] = groq_tools
 
         if stop:
             kwargs["stop"] = stop
@@ -157,11 +152,11 @@ class OpenAIProvider(BaseLLMProvider):
         max_tokens: int = 4096,
     ) -> AsyncIterator[str]:
         """Stream completion tokens."""
-        openai_messages = self._convert_messages(messages)
+        groq_messages = self._convert_messages(messages)
 
         kwargs = {
             "model": self._model,
-            "messages": openai_messages,
+            "messages": groq_messages,
             "max_tokens": max_tokens,
             "temperature": temperature,
             "stream": True,
@@ -172,25 +167,3 @@ class OpenAIProvider(BaseLLMProvider):
         async for chunk in stream:
             if chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
-
-
-# Legacy adapter for backward compatibility
-class OpenAIAdapter(OpenAIProvider):
-    """Legacy adapter name. Use OpenAIProvider instead."""
-
-    def __init__(self, api_key: str, **kwargs):
-        super().__init__(api_key=api_key, **kwargs)
-
-    def generate_response(self, prompt: str, history: List[Dict[str, str]]) -> str:
-        """Legacy interface for simple text generation."""
-        import asyncio
-
-        messages = [
-            LLMMessage(role=m["role"], content=m["content"])
-            for m in history
-        ]
-        messages.append(LLMMessage(role="user", content=prompt))
-
-        loop = asyncio.get_event_loop()
-        response = loop.run_until_complete(self.complete(messages))
-        return response.content or ""

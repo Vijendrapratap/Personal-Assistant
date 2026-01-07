@@ -9,14 +9,38 @@ from alfred.core.agents.base import (
     BaseAgent,
     AgentType,
     AgentResult,
-    AgentContext,
+    AgentContext as BaseAgentContext,
     AgentCapability,
+)
+from alfred.core.agents.executor import (
+    AgentExecutor,
+    AgentContext,
+    ExecutionResult,
+    ExecutionStep,
+)
+from alfred.core.agents.context import (
+    ContextBuilder,
+    UserContext,
+    KnowledgeContext,
+    EnvironmentContext,
+    ConversationContext,
 )
 
 __all__ = [
+    # Base classes
     "BaseAgent",
     "AgentType",
     "AgentResult",
-    "AgentContext",
     "AgentCapability",
+    # Executor
+    "AgentExecutor",
+    "AgentContext",
+    "ExecutionResult",
+    "ExecutionStep",
+    # Context building
+    "ContextBuilder",
+    "UserContext",
+    "KnowledgeContext",
+    "EnvironmentContext",
+    "ConversationContext",
 ]
