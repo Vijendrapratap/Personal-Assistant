@@ -170,20 +170,19 @@ export default function YouScreen({ navigation }: YouScreenProps) {
 
   const settingsItems = [
     {
-      icon: '🔔',
-      label: 'Notifications',
-      onPress: () => navigation.navigate('NotificationSettings'),
+      icon: '⚙️',
+      label: 'Settings',
+      onPress: () => navigation.navigate('settings'),
     },
     {
-      icon: '🎤',
-      label: 'Voice & Language',
-      onPress: () => navigation.navigate('VoiceSettings'),
+      icon: '🔔',
+      label: 'Reminders',
+      onPress: () => navigation.navigate('reminders'),
     },
     {
       icon: '🔗',
-      label: 'Integrations',
-      onPress: () => navigation.navigate('Integrations'),
-      badge: 'Coming Soon',
+      label: 'Connectors',
+      onPress: () => navigation.navigate('connectors'),
     },
     {
       icon: '🛡️',

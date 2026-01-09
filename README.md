@@ -236,16 +236,27 @@ For developers who want to understand or contribute:
 ### Architecture
 
 ```
-alfred/                 # Python Backend (FastAPI)
-├── core/               # Business logic & personality
-├── infrastructure/     # Database, LLM, notifications
-├── api/                # REST endpoints
-└── main.py             # Application entry
+alfred/                     # Python Backend (FastAPI)
+├── core/                   # Business logic & personality
+├── infrastructure/         # Database, LLM, notifications
+├── api/                    # REST endpoints
+├── integrations/           # Third-party integrations
+└── main.py                 # Application entry
 
-mobile/                 # React Native + Expo
-├── src/screens/        # UI screens
-├── src/api/            # API client
-└── App.tsx             # Navigation
+mobile/                     # React Native + Expo Router
+├── app/                    # File-based routing
+│   ├── (auth)/             # Authentication screens
+│   ├── (tabs)/             # Main tab navigation
+│   └── settings/           # Settings screens
+├── src/
+│   ├── screens/            # Screen components
+│   ├── components/         # Reusable UI components
+│   ├── api/                # API client & services
+│   ├── lib/                # Hooks & state management
+│   └── theme/              # Design tokens & theming
+└── assets/                 # Images & fonts
+
+docs/                       # Technical documentation
 ```
 
 ### Tech Stack
@@ -277,11 +288,8 @@ Once running, visit `http://localhost:8000/docs` for the full API reference.
 
 | Document | Description |
 |----------|-------------|
-| [Product Vision](docs/PRODUCT_VISION.md) | Vision, memory architecture, user personas |
-| [Feature Specification](docs/FEATURE_SPECIFICATION.md) | Detailed feature breakdowns |
-| [Architecture](docs/ARCHITECTURE.md) | System design & diagrams |
-| [Database Schema](docs/DATABASE_SCHEMA.md) | Data models & relationships |
-| [Quick Reference](docs/QUICK_REFERENCE.md) | Developer lookup guide |
+| [Knowledge Base Setup](docs/KNOWLEDGE_BASE.md) | Vector database and knowledge management |
+| [MCP Setup](docs/MCP_SETUP.md) | Model Context Protocol configuration |
 
 ---
 
@@ -292,8 +300,10 @@ Once running, visit `http://localhost:8000/docs` for the full API reference.
 - [x] Habit tracking with streaks
 - [x] Push notifications & briefings
 - [x] Mobile app (iOS/Android)
-- [ ] Voice interaction
-- [ ] Calendar integration
+- [x] Voice interaction UI
+- [x] Calendar view with timeline
+- [x] Settings & persona customization
+- [x] Connectors framework
 - [ ] Email integration
 - [ ] Web dashboard
 - [ ] Team/multi-user support
