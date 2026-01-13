@@ -3,13 +3,18 @@
 venv/
 env/
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
 *.egg-info/
 .eggs/
 dist/
 build/
-.Python
 
 # Environment files (keep .env.example, ignore actual secrets)
 .env

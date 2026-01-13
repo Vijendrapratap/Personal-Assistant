@@ -34,6 +34,15 @@ from alfred.core.connectors.manager import (
     ConnectorManager,
 )
 
+# Import connectors to register them
+from alfred.core.connectors import google_calendar  # noqa: F401
+from alfred.core.connectors import github  # noqa: F401
+from alfred.core.connectors import slack  # noqa: F401
+from alfred.core.connectors import notion  # noqa: F401
+from alfred.core.connectors import linear  # noqa: F401
+from alfred.core.connectors import gmail  # noqa: F401
+from alfred.core.connectors import outlook  # noqa: F401
+
 __all__ = [
     # Base
     "BaseConnector",

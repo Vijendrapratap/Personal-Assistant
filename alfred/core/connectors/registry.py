@@ -219,6 +219,13 @@ class ConnectorCatalog:
             "auth_type": "oauth2",
         },
         {
+            "type": "outlook",
+            "name": "Outlook",
+            "description": "Access your Microsoft Outlook email",
+            "icon": "mail",
+            "auth_type": "oauth2",
+        },
+        {
             "type": "slack",
             "name": "Slack",
             "description": "Connect your Slack workspace",
