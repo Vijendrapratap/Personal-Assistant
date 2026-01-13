@@ -11,3 +11,4 @@ export {
   TaskListSkeleton,
   TimelineSkeleton,
 } from './Skeleton';
+export { ErrorBoundary } from './ErrorBoundary';

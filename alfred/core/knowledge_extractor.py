@@ -478,30 +478,71 @@ class KnowledgeStore:
                     print(f"Error storing preference: {e}")
 
         # Store in knowledge graph if available
-        if self.graph:
-            # Store entities
+        if self.graph and self.graph.enabled:
+            # Store entities based on type
             for entity in result.entities:
                 try:
-                    self.graph.upsert_entity(
-                        user_id=user_id,
-                        name=entity.name,
-                        type=entity.type.value,
-                        attributes=entity.attributes
-                    )
+                    if entity.type == EntityType.PERSON:
+                        self.graph.add_person(
+                            user_id=user_id,
+                            name=entity.name,
+                            relationship=entity.attributes.get("relationship", "contact"),
+                            organization=entity.attributes.get("company", ""),
+                            notes=entity.attributes.get("notes", ""),
+                        )
+                    elif entity.type == EntityType.COMPANY:
+                        # Store company as a learning for now
+                        self.graph.store_learning(
+                            user_id=user_id,
+                            topic="company",
+                            content=f"Company: {entity.name}",
+                            source="conversation",
+                            confidence=entity.confidence,
+                            related_entities=[entity.name],
+                        )
+                    elif entity.type == EntityType.PROJECT:
+                        self.graph.add_project(
+                            user_id=user_id,
+                            project_id=f"extracted_{entity.name.lower().replace(' ', '_')}",
+                            name=entity.name,
+                            organization=entity.attributes.get("organization", ""),
+                            role=entity.attributes.get("role", ""),
+                        )
+                    else:
+                        # Store other entities as learnings
+                        self.graph.store_learning(
+                            user_id=user_id,
+                            topic=entity.type.value,
+                            content=f"{entity.name}: {json.dumps(entity.attributes) if entity.attributes else ''}",
+                            source="conversation",
+                            confidence=entity.confidence,
+                            related_entities=[entity.name],
+                        )
                     counts["entities"] += 1
                 except Exception as e:
-                    print(f"Error storing entity: {e}")
+                    print(f"Error storing entity {entity.name}: {e}")
 
-            # Store relationships
+            # Store relationships as learnings
             for rel in result.relationships:
                 try:
-                    self.graph.create_relationship(
-                        user_id=user_id,
-                        from_entity=rel.from_entity,
-                        relationship=rel.relationship.value,
-                        to_entity=rel.to_entity,
-                        properties=rel.properties
-                    )
+                    # Link people to projects if applicable
+                    if rel.relationship == RelationshipType.WORKS_ON:
+                        self.graph.link_person_to_project(
+                            user_id=user_id,
+                            person_name=rel.from_entity,
+                            project_id=f"extracted_{rel.to_entity.lower().replace(' ', '_')}",
+                            role=rel.properties.get("role", "member"),
+                        )
+                    else:
+                        # Store as learning
+                        self.graph.store_learning(
+                            user_id=user_id,
+                            topic="relationship",
+                            content=f"{rel.from_entity} {rel.relationship.value} {rel.to_entity}",
+                            source="conversation",
+                            confidence=rel.confidence,
+                            related_entities=[rel.from_entity, rel.to_entity],
+                        )
                     counts["relationships"] += 1
                 except Exception as e:
                     print(f"Error storing relationship: {e}")
@@ -509,12 +550,10 @@ class KnowledgeStore:
             # Store facts
             for fact in result.facts:
                 try:
-                    self.graph.add_fact(
+                    self.graph.learn_fact(
                         user_id=user_id,
-                        subject=fact.subject,
-                        predicate=fact.predicate,
-                        object_value=fact.object_value,
-                        confidence=fact.confidence
+                        fact=f"{fact.subject} {fact.predicate} {fact.object_value}",
+                        related_entities=[fact.subject] if fact.subject else None,
                     )
                     counts["facts"] += 1
                 except Exception as e:
@@ -529,17 +568,28 @@ class KnowledgeStore:
                     text += f": {json.dumps(entity.attributes)}"
 
                 try:
-                    self.vector_store.upsert(
-                        doc_id=f"entity_{user_id}_{entity.name}",
+                    await self.vector_store.add_knowledge(
+                        user_id=user_id,
                         content=text,
-                        metadata={
-                            "user_id": user_id,
-                            "type": "entity",
-                            "entity_type": entity.type.value,
-                            "name": entity.name
-                        }
+                        source="extraction",
+                        doc_type="entity",
+                        tags=[entity.type.value, entity.name],
                     )
                 except Exception as e:
                     print(f"Error indexing entity: {e}")
+
+            # Index facts for semantic search
+            for fact in result.facts:
+                fact_text = f"{fact.subject} {fact.predicate} {fact.object_value}"
+                try:
+                    await self.vector_store.add_knowledge(
+                        user_id=user_id,
+                        content=fact_text,
+                        source="extraction",
+                        doc_type="fact",
+                        tags=[fact.subject] if fact.subject else [],
+                    )
+                except Exception as e:
+                    print(f"Error indexing fact: {e}")
 
         return counts

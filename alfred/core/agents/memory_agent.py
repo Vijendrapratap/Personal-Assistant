@@ -353,11 +353,21 @@ class MemoryAgent(BaseAgent):
         user_id: str,
         user_input: str,
         response: str,
-        actions: List[List[str]]
+        actions: List[List[str]],
+        vector_store: Any = None,
+        knowledge_graph: Any = None,
     ) -> None:
         """
         Store interaction and extract learnings.
         Called by orchestrator after each interaction.
+
+        Args:
+            user_id: User ID
+            user_input: What the user said
+            response: What Alfred responded
+            actions: List of actions taken
+            vector_store: Optional vector store for semantic indexing
+            knowledge_graph: Optional knowledge graph for entity storage
         """
         if not self.storage:
             return
@@ -379,7 +389,41 @@ class MemoryAgent(BaseAgent):
                     pref.get("confidence", 0.8)
                 )
 
-            # TODO: Store facts in knowledge graph when implemented
+            # Store facts in knowledge graph if available
+            if knowledge_graph and hasattr(knowledge_graph, 'enabled') and knowledge_graph.enabled:
+                for fact in extraction.get("facts", []):
+                    try:
+                        knowledge_graph.learn_fact(
+                            user_id=user_id,
+                            fact=f"{fact.get('subject', '')} {fact.get('predicate', '')} {fact.get('object', '')}",
+                        )
+                    except Exception as e:
+                        print(f"Error storing fact in knowledge graph: {e}")
+
+                for entity in extraction.get("entities", []):
+                    try:
+                        if entity.get("type") == "person":
+                            knowledge_graph.add_person(
+                                user_id=user_id,
+                                name=entity.get("name", ""),
+                                relationship="contact",
+                            )
+                    except Exception as e:
+                        print(f"Error storing entity in knowledge graph: {e}")
+
+            # Index conversation in vector store for semantic search
+            if vector_store:
+                try:
+                    conversation_text = f"User: {user_input}\nAlfred: {response}"
+                    await vector_store.add_knowledge(
+                        user_id=user_id,
+                        content=conversation_text,
+                        source="conversation",
+                        doc_type="conversation",
+                        tags=["chat"],
+                    )
+                except Exception as e:
+                    print(f"Error indexing conversation in vector store: {e}")
 
         except Exception as e:
             print(f"Error storing interaction: {e}")

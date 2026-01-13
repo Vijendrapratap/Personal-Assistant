@@ -23,6 +23,7 @@ class ChatService(BaseService):
     - Message processing through agent system
     - Conversation history management
     - Streaming responses
+    - RAG context retrieval from vector store
     """
 
     def __init__(
@@ -31,6 +32,7 @@ class ChatService(BaseService):
         llm_provider: Optional[BaseLLMProvider] = None,
         knowledge_graph: Any = None,
         notification_provider: Any = None,
+        vector_store: Any = None,
         **kwargs,
     ):
         super().__init__(
@@ -40,6 +42,7 @@ class ChatService(BaseService):
             **kwargs,
         )
         self.llm_provider = llm_provider
+        self.vector_store = vector_store
         self._agent_executor: Optional[AgentExecutor] = None
 
     def _get_executor(self) -> AgentExecutor:
@@ -50,6 +53,31 @@ class ChatService(BaseService):
                 max_iterations=10,
             )
         return self._agent_executor
+
+    async def _get_rag_context(self, user_id: str, message: str) -> str:
+        """
+        Get relevant context from vector store using RAG.
+
+        Args:
+            user_id: User ID
+            message: User's message to find relevant context for
+
+        Returns:
+            Formatted context string for injection into conversation
+        """
+        if not self.vector_store:
+            return ""
+
+        try:
+            context = await self.vector_store.get_relevant_context(
+                user_id=user_id,
+                query=message,
+                max_tokens=2000,
+            )
+            return context
+        except Exception as e:
+            print(f"Error getting RAG context: {e}")
+            return ""
 
     async def process_message(
         self,
@@ -77,6 +105,9 @@ class ChatService(BaseService):
         # Get conversation history
         history = self.storage.get_chat_history(user_id, limit=20)
 
+        # Get RAG context from vector store
+        rag_context = await self._get_rag_context(user_id, message)
+
         # Save user message
         self.storage.save_chat(
             user_id=user_id,
@@ -85,7 +116,7 @@ class ChatService(BaseService):
             metadata={"conversation_id": conversation_id},
         )
 
-        # Build agent context
+        # Build agent context with RAG context
         context = AgentContext(
             user_id=user_id,
             storage=self.storage,
@@ -93,6 +124,7 @@ class ChatService(BaseService):
             notification_provider=self.notification_provider,
             conversation_id=conversation_id,
             conversation_history=history,
+            rag_context=rag_context,  # Include RAG context
         )
 
         # Get executor and register tools

@@ -2,6 +2,7 @@
  * Root Layout for Expo Router
  *
  * Provides global providers and navigation structure.
+ * Includes ErrorBoundary for crash handling and offline queue support.
  */
 
 import { useEffect, useState } from 'react';
@@ -13,7 +14,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { ThemeProvider, useTheme } from '../src/theme';
-import { getAuthToken } from '../src/api/client';
+import { getAuthToken, initializeApiClient } from '../src/api/client';
+import { ErrorBoundary } from '../src/components/common';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -31,6 +33,9 @@ function RootLayoutNav() {
 
   const checkAuth = async () => {
     try {
+      // Initialize API client and offline queue
+      await initializeApiClient();
+
       const token = await getAuthToken();
       setIsAuthenticated(!!token);
     } catch (e) {
@@ -115,11 +120,18 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <ThemeProvider initialMode="dark">
-          <RootLayoutNav />
-        </ThemeProvider>
-      </SafeAreaProvider>
+      <ErrorBoundary
+        onError={(error, errorInfo) => {
+          // Log to error tracking service (e.g., Sentry)
+          console.error('App Error:', error, errorInfo);
+        }}
+      >
+        <SafeAreaProvider>
+          <ThemeProvider initialMode="dark">
+            <RootLayoutNav />
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }

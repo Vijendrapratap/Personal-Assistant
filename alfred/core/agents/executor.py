@@ -77,6 +77,7 @@ class AgentContext:
     conversation_id: Optional[str] = None
     conversation_history: List[Dict[str, str]] = field(default_factory=list)
     max_iterations: int = 10
+    rag_context: str = ""  # Relevant context from vector store (RAG)
 
     def to_tool_context(self) -> Dict[str, Any]:
         """Convert to context dict for tools."""
@@ -88,6 +89,13 @@ class AgentContext:
             "knowledge_graph": self.knowledge_graph,
             "notification_provider": self.notification_provider,
         }
+
+    def get_system_context(self) -> str:
+        """Get formatted context for system prompt."""
+        parts = []
+        if self.rag_context:
+            parts.append(f"## Relevant Context\n{self.rag_context}")
+        return "\n\n".join(parts)
 
 
 class AgentExecutor:

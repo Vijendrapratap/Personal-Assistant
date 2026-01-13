@@ -39,6 +39,11 @@ from alfred.infrastructure.scheduler.scheduler import get_scheduler
 from alfred.core.config_manager import get_config_manager, ConfigValidationError
 from alfred.core.orchestrator import Orchestrator, OrchestratorConfig
 
+# Knowledge graph and vector store imports
+from alfred.infrastructure.knowledge.neo4j_graph import Neo4jKnowledgeGraph
+from alfred.infrastructure.vector.qdrant import QdrantVectorStore
+from alfred.infrastructure.vector.embeddings import get_embedding_provider
+
 # Middleware imports
 from alfred.api.middleware import (
     JWTAuthMiddleware,
@@ -65,12 +70,16 @@ from alfred.core.connectors import ConnectorManager, get_connector_registry
 # Global service instances
 llm_provider = None
 storage_provider = None
-alfred = None
+alfred = None  # Deprecated, kept for backward compatibility
 orchestrator = None
 proactive_engine = None
 push_service = None
 scheduler = None
 config_manager = None
+
+# Knowledge graph and vector store instances
+knowledge_graph: Optional[Neo4jKnowledgeGraph] = None
+vector_store: Optional[QdrantVectorStore] = None
 
 # New architecture services
 chat_service: Optional[ChatService] = None
@@ -80,14 +89,11 @@ project_service: Optional[ProjectService] = None
 briefing_service: Optional[BriefingService] = None
 connector_manager: Optional[ConnectorManager] = None
 
-# Use multi-agent orchestrator (default: true)
-USE_ORCHESTRATOR = os.getenv("ALFRED_USE_ORCHESTRATOR", "true").lower() == "true"
-
 # Debug mode
 DEBUG = os.getenv("ALFRED_DEBUG", "false").lower() == "true"
 
 
-def init_services(storage, llm, notification_provider=None, knowledge_graph=None):
+def init_services(storage, llm, notification_provider=None, knowledge_graph=None, vector_store=None):
     """Initialize all service layer components."""
     global chat_service, task_service, habit_service, project_service, briefing_service
 
@@ -98,10 +104,11 @@ def init_services(storage, llm, notification_provider=None, knowledge_graph=None
     }
 
     task_service = TaskService(**common_kwargs)
+    task_service.vector_store = vector_store  # Add vector store for indexing
     habit_service = HabitService(**common_kwargs)
     project_service = ProjectService(**common_kwargs)
     briefing_service = BriefingService(**common_kwargs)
-    chat_service = ChatService(llm_provider=llm, **common_kwargs)
+    chat_service = ChatService(llm_provider=llm, vector_store=vector_store, **common_kwargs)
 
     logger.info("Service layer initialized")
 
@@ -122,6 +129,7 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     global llm_provider, storage_provider, alfred, orchestrator, proactive_engine
     global push_service, scheduler, config_manager, connector_manager
+    global knowledge_graph, vector_store
 
     # Startup
     try:
@@ -148,20 +156,45 @@ async def lifespan(app: FastAPI):
             storage_provider = SQLiteAdapter()
             logger.info(f"Using SQLite database at {storage_provider.db_path}")
 
-        # Initialize the appropriate core
-        if USE_ORCHESTRATOR and storage_provider:
-            # New multi-agent orchestrator
+        # Initialize Knowledge Graph (Neo4j) - optional
+        if os.getenv("NEO4J_URI"):
+            try:
+                knowledge_graph = Neo4jKnowledgeGraph()
+                if knowledge_graph.enabled:
+                    logger.info("Neo4j knowledge graph connected")
+                else:
+                    logger.warning("Neo4j configured but not connected")
+                    knowledge_graph = None
+            except Exception as e:
+                logger.warning(f"Failed to initialize Neo4j: {e}")
+                knowledge_graph = None
+
+        # Initialize Vector Store (Qdrant) - optional
+        if os.getenv("QDRANT_URL") or os.getenv("OPENAI_API_KEY"):
+            try:
+                embedding_provider = get_embedding_provider("openai")
+                vector_store = QdrantVectorStore(embedding_provider=embedding_provider)
+                if await vector_store.initialize():
+                    logger.info("Qdrant vector store initialized")
+                else:
+                    logger.warning("Qdrant could not be initialized")
+                    vector_store = None
+            except Exception as e:
+                logger.warning(f"Failed to initialize Qdrant: {e}")
+                vector_store = None
+
+        # Initialize the orchestrator (primary chat engine)
+        if storage_provider:
             orchestrator = Orchestrator(
                 llm=llm_provider,
                 storage=storage_provider,
                 config=OrchestratorConfig(
                     enable_learning=True,
-                    alfred_personality="butler"
                 )
             )
             logger.info(f"Alfred Orchestrator initialized with {len(orchestrator.get_available_agents())} agents")
 
-        # Always initialize legacy butler for backward compatibility
+        # Initialize legacy butler for backward compatibility (deprecated)
         alfred = Alfred(brain=llm_provider, storage=storage_provider)
         logger.info(f"Alfred initialized with Brain: {type(llm_provider).__name__}, "
                     f"Storage: {type(storage_provider).__name__ if storage_provider else 'None'}")
@@ -175,6 +208,8 @@ async def lifespan(app: FastAPI):
                 storage=storage_provider,
                 llm=llm_provider,
                 notification_provider=push_service,
+                knowledge_graph=knowledge_graph,
+                vector_store=vector_store,
             )
 
             # Initialize connectors
@@ -342,16 +377,16 @@ async def chat(req: ChatRequest, request: Request):
     """
     Chat with Alfred using multi-agent orchestration.
 
-    Uses the new service layer when available, falling back to legacy butler.
+    Uses ChatService with Orchestrator for intelligent responses.
     """
-    global alfred, orchestrator, chat_service
+    global orchestrator, chat_service
 
     # Get user from request state (set by auth middleware)
     current_user_id = getattr(request.state, "user_id", None)
     if not current_user_id:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    # Try new chat service first
+    # Use chat service (primary path)
     if chat_service:
         try:
             result = await chat_service.process_message(
@@ -363,31 +398,31 @@ async def chat(req: ChatRequest, request: Request):
                 response=result["response"],
                 conversation_id=result.get("conversation_id"),
                 metadata={
-                    "engine": "agent_executor",
+                    "engine": "orchestrator",
                     "tool_calls": result.get("tool_calls_made", 0),
                 },
             )
         except Exception as e:
-            logger.warning(f"ChatService error, falling back: {e}")
+            logger.error(f"ChatService error: {e}")
+            # Fall back to direct orchestrator call
+            if orchestrator:
+                try:
+                    response_text = await orchestrator.process(req.message, current_user_id)
+                    return ChatResponse(
+                        response=response_text,
+                        metadata={"engine": "orchestrator_fallback"}
+                    )
+                except Exception as oe:
+                    logger.error(f"Orchestrator fallback error: {oe}")
+                    raise HTTPException(status_code=500, detail=str(oe))
 
-    # Use orchestrator if available
-    if USE_ORCHESTRATOR and orchestrator:
-        try:
-            response_text = await orchestrator.process(req.message, current_user_id)
-            return ChatResponse(
-                response=response_text,
-                metadata={"engine": "orchestrator", "agents": len(orchestrator.get_available_agents())}
-            )
-        except Exception as e:
-            logger.warning(f"Orchestrator error, falling back to butler: {e}")
-
-    # Legacy butler
-    if not alfred:
+    # No chat service available
+    if not orchestrator:
         raise HTTPException(status_code=503, detail="Alfred not initialized")
 
     try:
-        response_text = alfred.ask(req.message, current_user_id)
-        return ChatResponse(response=response_text, metadata={"engine": "butler"})
+        response_text = await orchestrator.process(req.message, current_user_id)
+        return ChatResponse(response=response_text, metadata={"engine": "orchestrator"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -398,7 +433,7 @@ async def chat_stream(req: ChatRequest, request: Request):
     Stream chat response with thinking steps for transparency.
     Uses Server-Sent Events (SSE) to stream progress in real-time.
     """
-    global alfred, chat_service
+    global orchestrator, chat_service
 
     current_user_id = getattr(request.state, "user_id", None)
     if not current_user_id:
@@ -427,8 +462,8 @@ async def chat_stream(req: ChatRequest, request: Request):
                 except Exception as e:
                     logger.warning(f"ChatService streaming error: {e}")
 
-            # Fallback to legacy butler with simulated streaming
-            if not alfred:
+            # Fallback to orchestrator with simulated streaming
+            if not orchestrator:
                 yield f"data: {json.dumps({'type': 'error', 'message': 'Alfred not initialized'})}\n\n"
                 return
 
@@ -456,8 +491,8 @@ async def chat_stream(req: ChatRequest, request: Request):
             thinking_steps[2]["status"] = "in_progress"
             yield f"data: {json.dumps({'type': 'thinking', 'step': thinking_steps[2]})}\n\n"
 
-            # Get actual response
-            response_text = alfred.ask(req.message, current_user_id)
+            # Get actual response from orchestrator
+            response_text = await orchestrator.process(req.message, current_user_id)
 
             thinking_steps[2]["status"] = "completed"
             yield f"data: {json.dumps({'type': 'thinking', 'step': thinking_steps[2]})}\n\n"
@@ -491,18 +526,21 @@ def health():
     """Health check endpoint."""
     return {
         "status": "online",
-        "version": "2.1.0",
+        "version": "2.2.0",
         "brain": type(llm_provider).__name__ if llm_provider else "Not initialized",
         "storage": type(storage_provider).__name__ if storage_provider else "Not initialized",
         "orchestrator": "active" if orchestrator else "inactive",
-        "agents": orchestrator.get_available_agents() if orchestrator else [],
-        "use_orchestrator": USE_ORCHESTRATOR,
+        "agents": [a.value for a in orchestrator.get_available_agents()] if orchestrator else [],
         "services": {
             "chat": chat_service is not None,
             "tasks": task_service is not None,
             "habits": habit_service is not None,
             "projects": project_service is not None,
             "briefing": briefing_service is not None,
+        },
+        "integrations": {
+            "knowledge_graph": knowledge_graph.enabled if knowledge_graph else False,
+            "vector_store": vector_store is not None,
         },
         "connectors": {
             "manager": connector_manager is not None,

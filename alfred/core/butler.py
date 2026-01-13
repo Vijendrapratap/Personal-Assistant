@@ -1,9 +1,14 @@
 """
 Alfred - The Digital Butler
 
-Core AI assistant logic with project-aware context and proactive capabilities.
+DEPRECATED: This module is deprecated in favor of the Orchestrator and ChatService.
+Use alfred.core.orchestrator.Orchestrator for multi-agent processing.
+Use alfred.core.services.chat_service.ChatService for chat handling.
+
+This class is kept for backward compatibility only.
 """
 
+import warnings
 from typing import List, Dict, Optional, Any
 from datetime import datetime, date
 
@@ -13,10 +18,24 @@ from alfred.core.interfaces import LLMProvider, MemoryStorage
 class Alfred:
     """
     The main Alfred assistant class.
-    Handles conversations, maintains context, and provides intelligent responses.
+
+    DEPRECATED: This class is deprecated. Use ChatService with Orchestrator instead.
+
+    The new architecture uses a multi-agent system:
+    - ChatService: Handles conversation management
+    - Orchestrator: Routes requests to specialized agents
+    - AgentExecutor: Executes agent logic with tools
+
+    This class is kept for backward compatibility only.
     """
 
     def __init__(self, brain: LLMProvider, storage: Optional[MemoryStorage] = None):
+        warnings.warn(
+            "Alfred butler class is deprecated. Use ChatService with Orchestrator instead. "
+            "See alfred.core.services.chat_service and alfred.core.orchestrator.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.brain = brain  # Dependency Injection
         self.storage = storage
 
