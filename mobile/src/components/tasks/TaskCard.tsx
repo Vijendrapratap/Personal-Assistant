@@ -1,17 +1,30 @@
 /**
  * TaskCard Component
- * Displays a task with swipe actions, priority colors, and project badge
+ * Displays a task with proper touch targets (48px), haptic feedback,
+ * animations, and accessibility support per iOS HIG guidelines.
  */
 
-import React from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   ViewStyle,
+  Pressable,
+  ActivityIndicator,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  interpolateColor,
+  runOnJS,
+} from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme';
 import { Text } from '../common';
+import { useHaptics } from '../../lib/hooks';
 
 export interface TaskCardProps {
   id: string;
@@ -30,7 +43,9 @@ export interface TaskCardProps {
   style?: ViewStyle;
 }
 
-export function TaskCard({
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function TaskCardComponent({
   id,
   title,
   description,
@@ -47,8 +62,15 @@ export function TaskCard({
   style,
 }: TaskCardProps) {
   const { theme } = useTheme();
+  const haptics = useHaptics();
+  const [isCompleting, setIsCompleting] = useState(false);
 
-  const getPriorityColor = () => {
+  // Animation values
+  const cardScale = useSharedValue(1);
+  const checkboxScale = useSharedValue(1);
+  const checkboxProgress = useSharedValue(status === 'completed' ? 1 : 0);
+
+  const getPriorityColor = useCallback(() => {
     switch (priority) {
       case 'high':
         return theme.colors.priority.high;
@@ -59,9 +81,9 @@ export function TaskCard({
       default:
         return theme.colors.textTertiary;
     }
-  };
+  }, [priority, theme.colors]);
 
-  const getPriorityBgColor = () => {
+  const getPriorityBgColor = useCallback(() => {
     switch (priority) {
       case 'high':
         return theme.colors.priority.highBg;
@@ -72,9 +94,9 @@ export function TaskCard({
       default:
         return theme.colors.bgHover;
     }
-  };
+  }, [priority, theme.colors]);
 
-  const getStatusColor = () => {
+  const getStatusColor = useCallback(() => {
     switch (status) {
       case 'in_progress':
         return theme.colors.info;
@@ -85,9 +107,9 @@ export function TaskCard({
       default:
         return theme.colors.textTertiary;
     }
-  };
+  }, [status, theme.colors]);
 
-  const formatDueDate = () => {
+  const formatDueDate = useCallback(() => {
     if (dueDateLabel) return dueDateLabel;
     if (!dueDate) return null;
 
@@ -103,13 +125,72 @@ export function TaskCard({
     } else {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
-  };
+  }, [dueDate, dueDateLabel]);
+
+  // Handlers with haptic feedback
+  const handleCardPress = useCallback(() => {
+    haptics.buttonPress();
+    onPress?.();
+  }, [haptics, onPress]);
+
+  const handleComplete = useCallback(async () => {
+    if (isCompleting) return;
+
+    setIsCompleting(true);
+
+    // Animate checkbox
+    checkboxScale.value = withSpring(0.8, { damping: 10 }, () => {
+      checkboxScale.value = withSpring(1, { damping: 8 });
+    });
+
+    // Animate to completed state
+    checkboxProgress.value = withTiming(1, { duration: 300 });
+
+    // Haptic feedback
+    haptics.taskComplete();
+
+    // Call the completion handler
+    setTimeout(() => {
+      onComplete?.();
+      setIsCompleting(false);
+    }, 200);
+  }, [isCompleting, checkboxScale, checkboxProgress, haptics, onComplete]);
+
+  const handleStart = useCallback(() => {
+    haptics.buttonPress();
+    onStart?.();
+  }, [haptics, onStart]);
+
+  const handlePressIn = useCallback(() => {
+    cardScale.value = withSpring(0.98, { damping: 15 });
+  }, [cardScale]);
+
+  const handlePressOut = useCallback(() => {
+    cardScale.value = withSpring(1, { damping: 15 });
+  }, [cardScale]);
+
+  // Animated styles
+  const cardAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }],
+  }));
+
+  const checkboxAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkboxScale.value }],
+    backgroundColor: interpolateColor(
+      checkboxProgress.value,
+      [0, 1],
+      ['transparent', theme.colors.success]
+    ),
+  }));
 
   const isCompleted = status === 'completed';
   const dueDateFormatted = formatDueDate();
+  const priorityColor = getPriorityColor();
+  const priorityBgColor = getPriorityBgColor();
+  const statusColor = getStatusColor();
 
   return (
-    <TouchableOpacity
+    <AnimatedPressable
       style={[
         styles.container,
         {
@@ -117,27 +198,41 @@ export function TaskCard({
           borderColor: theme.colors.border,
         },
         isCompleted && styles.completedContainer,
+        cardAnimatedStyle,
         style,
       ]}
-      onPress={onPress}
-      activeOpacity={0.7}
+      onPress={handleCardPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessibilityRole="button"
+      accessibilityLabel={`Task: ${title}. Priority: ${priority}. Status: ${status}`}
+      accessibilityHint="Double tap to view task details"
     >
-      {/* Checkbox */}
-      <TouchableOpacity
-        style={[
-          styles.checkbox,
-          {
-            borderColor: getPriorityColor(),
-            backgroundColor: isCompleted ? theme.colors.success : 'transparent',
-          },
-        ]}
-        onPress={onComplete}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      {/* Checkbox - 48px touch target per iOS HIG */}
+      <Pressable
+        style={styles.checkboxTouchArea}
+        onPress={handleComplete}
+        disabled={isCompleting || isCompleted}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: isCompleted }}
+        accessibilityLabel={`Mark ${title} as complete`}
       >
-        {isCompleted && (
-          <Text style={styles.checkmark}>✓</Text>
-        )}
-      </TouchableOpacity>
+        <Animated.View
+          style={[
+            styles.checkbox,
+            {
+              borderColor: isCompleted ? theme.colors.success : priorityColor,
+            },
+            checkboxAnimatedStyle,
+          ]}
+        >
+          {isCompleting ? (
+            <ActivityIndicator size="small" color={theme.colors.success} />
+          ) : isCompleted ? (
+            <Ionicons name="checkmark" size={16} color="#fff" />
+          ) : null}
+        </Animated.View>
+      </Pressable>
 
       {/* Content */}
       <View style={styles.content}>
@@ -174,16 +269,28 @@ export function TaskCard({
           <View
             style={[
               styles.badge,
-              { backgroundColor: getPriorityBgColor() },
+              { backgroundColor: priorityBgColor },
             ]}
           >
+            <Ionicons
+              name={
+                priority === 'high'
+                  ? 'flame'
+                  : priority === 'medium'
+                  ? 'arrow-up'
+                  : 'arrow-down'
+              }
+              size={10}
+              color={priorityColor}
+              style={styles.badgeIcon}
+            />
             <Text
               style={[
                 styles.badgeText,
-                { color: getPriorityColor() },
+                { color: priorityColor },
               ]}
             >
-              {priority.toUpperCase()}
+              {priority.charAt(0).toUpperCase() + priority.slice(1)}
             </Text>
           </View>
 
@@ -199,6 +306,12 @@ export function TaskCard({
                 },
               ]}
             >
+              <Ionicons
+                name="folder-outline"
+                size={10}
+                color={projectColor || theme.colors.primary}
+                style={styles.badgeIcon}
+              />
               <Text
                 style={[
                   styles.badgeText,
@@ -211,55 +324,70 @@ export function TaskCard({
             </View>
           )}
 
-          {/* Status badge (if not pending) */}
+          {/* Status badge (if not pending or completed) */}
           {status !== 'pending' && status !== 'completed' && (
             <View
               style={[
                 styles.badge,
-                { backgroundColor: `${getStatusColor()}20` },
+                { backgroundColor: `${statusColor}20` },
               ]}
             >
+              <Ionicons
+                name={status === 'in_progress' ? 'play' : 'pause'}
+                size={10}
+                color={statusColor}
+                style={styles.badgeIcon}
+              />
               <Text
                 style={[
                   styles.badgeText,
-                  { color: getStatusColor() },
+                  { color: statusColor },
                 ]}
               >
-                {status.replace('_', ' ').toUpperCase()}
+                {status === 'in_progress' ? 'In Progress' : 'Blocked'}
               </Text>
             </View>
           )}
 
           {/* Due date */}
           {dueDateFormatted && (
-            <Text
-              variant="caption"
-              style={[
-                styles.dueDate,
-                {
-                  color: isOverdue
-                    ? theme.colors.danger
-                    : theme.colors.textTertiary,
-                },
-              ]}
-            >
-              {isOverdue && '! '}
-              {dueDateFormatted}
-            </Text>
+            <View style={styles.dueDateContainer}>
+              <Ionicons
+                name={isOverdue ? 'alert-circle' : 'calendar-outline'}
+                size={12}
+                color={isOverdue ? theme.colors.danger : theme.colors.textTertiary}
+                style={styles.dueDateIcon}
+              />
+              <Text
+                variant="caption"
+                style={[
+                  styles.dueDate,
+                  {
+                    color: isOverdue
+                      ? theme.colors.danger
+                      : theme.colors.textTertiary,
+                  },
+                ]}
+              >
+                {dueDateFormatted}
+              </Text>
+            </View>
           )}
         </View>
       </View>
 
-      {/* Quick action (Start button for pending tasks) */}
+      {/* Quick action (Start button for pending tasks) - 44px minimum touch target */}
       {status === 'pending' && onStart && (
-        <TouchableOpacity
-          style={[
+        <Pressable
+          style={({ pressed }) => [
             styles.startButton,
-            { backgroundColor: theme.colors.primarySoft },
+            { backgroundColor: pressed ? theme.colors.primaryLight : theme.colors.primarySoft },
           ]}
-          onPress={onStart}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          onPress={handleStart}
+          accessibilityRole="button"
+          accessibilityLabel={`Start task: ${title}`}
         >
+          <Ionicons name="play" size={14} color={theme.colors.primary} />
           <Text
             style={[
               styles.startButtonText,
@@ -268,11 +396,14 @@ export function TaskCard({
           >
             Start
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
+
+// Memoize for FlatList performance
+export const TaskCard = memo(TaskCardComponent);
 
 const styles = StyleSheet.create({
   container: {
@@ -286,6 +417,16 @@ const styles = StyleSheet.create({
   completedContainer: {
     opacity: 0.7,
   },
+  // 48px touch target area (iOS HIG recommends 44px minimum)
+  checkboxTouchArea: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -12,
+    marginTop: -12,
+    marginBottom: -12,
+  },
   checkbox: {
     width: 24,
     height: 24,
@@ -293,16 +434,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-    marginTop: 2,
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
   },
   content: {
     flex: 1,
+    marginLeft: 4,
   },
   titleRow: {
     flexDirection: 'row',
@@ -311,6 +446,7 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     fontWeight: '500',
+    lineHeight: 22,
   },
   description: {
     marginTop: 4,
@@ -323,23 +459,42 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 6,
   },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+  badgeIcon: {
+    marginRight: 4,
   },
-  dueDate: {
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  dueDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginLeft: 'auto',
   },
+  dueDateIcon: {
+    marginRight: 4,
+  },
+  dueDate: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  // 44px minimum touch target for start button
   startButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 8,
     marginLeft: 10,
+    minHeight: 44,
+    gap: 4,
   },
   startButtonText: {
     fontSize: 13,

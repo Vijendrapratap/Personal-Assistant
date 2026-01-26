@@ -8,45 +8,39 @@ import { ActivityIndicator, View, Text, StyleSheet, TouchableOpacity } from 'rea
 // Theme
 import { ThemeProvider, useTheme } from './src/theme';
 
-// Auth Screens
-import LoginScreen from './src/screens/LoginScreen';
-import SignupScreen from './src/screens/SignupScreen';
+// Screens - organized by category
+import {
+    // Auth
+    LoginScreen,
+    SignupScreen,
+    // Main Tabs
+    TodayScreen,
+    DoScreen,
+    FocusScreen,
+    YouScreen,
+    // Features
+    TasksScreen,
+    HabitsScreen,
+    ProjectsScreen,
+    // Settings
+    ProfileScreen,
+    EditProfileScreen,
+    PreferencesScreen,
+    NotificationSettingsScreen,
+    PrivacySettingsScreen,
+    VoiceSettingsScreen,
+    AboutScreen,
+    // Modals
+    VoiceModal,
+    EveningReviewModal,
+    // Details
+    PeopleScreen,
+    CompaniesScreen,
+    EntityDetailScreen,
+    IntegrationsScreen,
+} from './src/screens';
 
-// Main Tab Screens (New Architecture)
-import TodayScreen from './src/screens/TodayScreen';
-import DoScreen from './src/screens/DoScreen';
-import FocusScreen from './src/screens/FocusScreen';
-import YouScreen from './src/screens/YouScreen';
-
-// Settings Screens
-import EditProfileScreen from './src/screens/EditProfileScreen';
-import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
-import PrivacySettingsScreen from './src/screens/PrivacySettingsScreen';
-
-// Voice Modal
-import VoiceModal from './src/screens/VoiceModal';
-
-// Evening Review Modal
-import EveningReviewModal from './src/screens/EveningReviewModal';
-
-// Entity Screens
-import PeopleScreen from './src/screens/PeopleScreen';
-import CompaniesScreen from './src/screens/CompaniesScreen';
-import EntityDetailScreen from './src/screens/EntityDetailScreen';
-
-// Settings/Info Screens
-import PreferencesScreen from './src/screens/PreferencesScreen';
-import VoiceSettingsScreen from './src/screens/VoiceSettingsScreen';
-import IntegrationsScreen from './src/screens/IntegrationsScreen';
-import AboutScreen from './src/screens/AboutScreen';
-
-// Legacy Screens (still used for detail views)
-import ProfileScreen from './src/screens/ProfileScreen';
-import ProjectsScreen from './src/screens/ProjectsScreen';
-import TasksScreen from './src/screens/TasksScreen';
-import HabitsScreen from './src/screens/HabitsScreen';
-
-import { getAuthToken } from './src/api/client';
+import client, { getAuthToken, logout } from './src/api/client';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -118,7 +112,7 @@ function MainTabs() {
 
 function AppNavigator() {
     const [loading, setLoading] = useState(true);
-    const [initialRoute, setInitialRoute] = useState('Auth');
+    const [initialRoute, setInitialRoute] = useState('Login');
     const { theme } = useTheme();
 
     useEffect(() => {
@@ -129,10 +123,22 @@ function AppNavigator() {
         try {
             const token = await getAuthToken();
             if (token) {
-                setInitialRoute('Main');
+                // Validate token by calling profile endpoint
+                try {
+                    await client.get('/auth/profile');
+                    setInitialRoute('Main');
+                } catch (err: any) {
+                    // Token invalid (401/403), clear it and show login
+                    console.log('Token invalid, clearing...', err?.response?.status);
+                    await logout();
+                    setInitialRoute('Login');
+                }
+            } else {
+                setInitialRoute('Login');
             }
         } catch (e) {
-            console.log(e);
+            console.log('Auth check failed:', e);
+            setInitialRoute('Login');
         } finally {
             setLoading(false);
         }
@@ -161,15 +167,28 @@ function AppNavigator() {
                     border: theme.colors.border,
                     notification: theme.colors.primary,
                 },
+                fonts: {
+                    regular: {
+                        fontFamily: 'System',
+                        fontWeight: '400' as const,
+                    },
+                    medium: {
+                        fontFamily: 'System',
+                        fontWeight: '500' as const,
+                    },
+                    bold: {
+                        fontFamily: 'System',
+                        fontWeight: '700' as const,
+                    },
+                    heavy: {
+                        fontFamily: 'System',
+                        fontWeight: '900' as const,
+                    },
+                },
             }}
         >
             <Stack.Navigator initialRouteName={initialRoute}>
                 {/* Auth Screens */}
-                <Stack.Screen
-                    name="Auth"
-                    component={LoginScreen}
-                    options={{ headerShown: false }}
-                />
                 <Stack.Screen
                     name="Login"
                     component={LoginScreen}

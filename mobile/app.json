@@ -27,7 +27,9 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "expo-notifications",
+      ["expo-av", { "microphonePermission": "Allow Alfred to access microphone for voice input" }]
     ]
   }
 }

@@ -8,52 +8,55 @@
 // ============================================================================
 
 export const colors = {
-  // Primary - Alfred Blue
-  primary: '#1337EC',
-  primaryLight: '#3B5BFD',
-  primaryDark: '#0D2494',
-  primarySoft: '#E8EDFF',
-  primaryGlow: 'rgba(19, 55, 236, 0.15)',
+  // Primary - Vibrant Blue/Indigo
+  primary: '#4F46E5',        // Brighter, more visible Indigo
+  primaryLight: '#818CF8',   // Lighter for hover/active
+  primaryDark: '#3730A3',    // Darker for active states
+  primarySoft: '#EEF2FF',    // Very light background tint
+  primaryGlow: 'rgba(79, 70, 229, 0.3)', // Stronger glow
 
   // Semantic
   success: '#10B981',
-  successSoft: '#D1FAE5',
+  successSoft: 'rgba(16, 185, 129, 0.15)',
   warning: '#F59E0B',
-  warningSoft: '#FEF3C7',
+  warningSoft: 'rgba(245, 158, 11, 0.15)',
   danger: '#EF4444',
-  dangerSoft: '#FEE2E2',
-  info: '#6366F1',
-  infoSoft: '#E0E7FF',
+  dangerSoft: 'rgba(239, 68, 68, 0.15)',
+  info: '#3B82F6',
+  infoSoft: 'rgba(59, 130, 246, 0.15)',
 
-  // Dark Mode (Default)
+  // Dark Mode (OLED-optimized High Contrast)
   dark: {
-    bg: '#0D0F1A',
-    bgElevated: '#151929',
-    bgSurface: '#1C2136',
-    bgHover: '#252B45',
-    textPrimary: '#FFFFFF',
-    textSecondary: '#929BC9',
-    textTertiary: '#5A6282',
-    textDisabled: '#3D4463',
-    border: 'rgba(255, 255, 255, 0.08)',
-    borderLight: 'rgba(255, 255, 255, 0.05)',
+    bg: '#000000',           // True black for OLED battery savings
+    bgElevated: '#0F172A',   // Slate 900 - Elevated surfaces
+    bgSurface: '#1E293B',    // Slate 800 - Cards/inputs
+    bgHover: '#334155',      // Slate 700 - Hover states
+    textPrimary: '#FFFFFF',  // Pure white for max contrast
+    textSecondary: '#E2E8F0',// Slate 200 - High contrast grey
+    textTertiary: '#94A3B8', // Slate 400
+    textDisabled: '#64748B', // Slate 500
+    border: '#1E293B',       // Slate 800 - Subtle border
+    borderLight: '#0F172A',  // Slate 900
+    // Accent surfaces for cards
+    cardBg: '#0F172A',
+    cardBgHover: '#1E293B',
   },
 
-  // Light Mode
+  // Light Mode (Soft Beige & Warm Grey)
   light: {
-    bg: '#F8F9FC',
-    bgElevated: '#FFFFFF',
-    bgSurface: '#FFFFFF',
-    bgHover: '#F1F3F9',
-    textPrimary: '#111422',
-    textSecondary: '#5A6282',
-    textTertiary: '#929BC9',
-    textDisabled: '#C4C9D4',
-    border: 'rgba(0, 0, 0, 0.08)',
-    borderLight: 'rgba(0, 0, 0, 0.05)',
+    bg: '#FAF9F6',           // Off-white / Soft Beige
+    bgElevated: '#FFFFFF',   // White
+    bgSurface: '#F0EFEB',    // Warm light grey
+    bgHover: '#E7E5E4',      // Warm grey hover
+    textPrimary: '#1C1917',  // Warm Black (Stone 900)
+    textSecondary: '#44403C',// Warm Dark Grey (Stone 700)
+    textTertiary: '#78716C', // Warm Medium Grey (Stone 500)
+    textDisabled: '#A8A29E', // Warm Light Grey (Stone 400)
+    border: '#E7E5E4',       // Soft warm border
+    borderLight: '#F5F5F4',  // Very light warm border
   },
 
-  // Priority Colors
+  // Priority Colors (Vibrant)
   priority: {
     high: '#EF4444',
     highBg: 'rgba(239, 68, 68, 0.15)',
@@ -290,7 +293,7 @@ export const componentSize = {
 
 export type ThemeMode = 'dark' | 'light';
 
-export const createTheme = (mode: ThemeMode = 'dark') => ({
+export const createTheme = (mode: ThemeMode = 'light') => ({ // Default to light
   mode,
   colors: {
     ...colors,
@@ -315,8 +318,8 @@ export const createTheme = (mode: ThemeMode = 'dark') => ({
   componentSize,
 });
 
-// Default theme (dark mode)
-export const theme = createTheme('dark');
+// Default theme (light mode)
+export const theme = createTheme('light');
 
 // Type for theme
 export type Theme = ReturnType<typeof createTheme>;
